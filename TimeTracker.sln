@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{90DC2360-C9BD-483B-8538-AF0C6E76A941}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeTracker.Shared", "src\TimeTracker.Shared\TimeTracker.Shared.csproj", "{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeTracker.Server", "src\TimeTracker.Server\TimeTracker.Server.csproj", "{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeTracker.Agent", "src\TimeTracker.Agent\TimeTracker.Agent.csproj", "{6AC22700-3221-47E2-9D37-674FAE17EC64}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AC22700-3221-47E2-9D37-674FAE17EC64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AC22700-3221-47E2-9D37-674FAE17EC64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AC22700-3221-47E2-9D37-674FAE17EC64}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AC22700-3221-47E2-9D37-674FAE17EC64}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BA1CFAFA-FDEE-407B-AB8E-A382F28395BC} = {90DC2360-C9BD-483B-8538-AF0C6E76A941}
+		{5066AB5E-CD81-4EDB-95A8-82A3D7E3B889} = {90DC2360-C9BD-483B-8538-AF0C6E76A941}
+		{6AC22700-3221-47E2-9D37-674FAE17EC64} = {90DC2360-C9BD-483B-8538-AF0C6E76A941}
+	EndGlobalSection
+EndGlobal
