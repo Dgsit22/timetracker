@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
     <UserSecretsId>dotnet-TimeTracker.Agent-3cfb1ebb-b3ac-4cd8-9f15-f03857e5fc9b</UserSecretsId>
   </PropertyGroup>
 
