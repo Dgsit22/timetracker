@@ -51,8 +51,12 @@ Each Windows Agent needs:
 
 Both are set at install time via the MSI's `SERVERURL` / `AGENTAPIKEY`
 properties (see `installer/README.md`), and can be changed later without
-reinstalling by editing that machine's environment variables and restarting
-the `TimeTrackerAgent` service.
+reinstalling by editing that machine's `%ProgramData%\TimeTracker\agent-settings.json`
+and having the user log off/on (or just relaunching
+`TimeTracker.Agent.exe` from `C:\Program Files\TimeTracker Agent\`). The
+Agent runs as a per-user Startup-folder app, not a Windows Service — see
+"Why a config file instead of environment variables" in `installer/README.md`
+for why.
 
 ## Moving to a different server later (e.g. a cloud VM)
 
@@ -61,13 +65,9 @@ Nothing on the Agent side is hardcoded to this box. To move:
 1. Stand up the same `docker compose up -d --build` on the new host (a fresh
    Postgres volume is fine — the Agents' local outboxes hold undelivered
    events and will resend once pointed at the new URL).
-2. On each Agent machine, change the `Agent__ServerBaseUrl` (and
-   `Agent__ApiKey` if you rotate it) environment variable and restart the
-   `TimeTrackerAgent` service — no reinstall needed:
-   ```powershell
-   [Environment]::SetEnvironmentVariable("Agent__ServerBaseUrl", "https://timetracker.yourcompany.com", "Machine")
-   Restart-Service TimeTrackerAgent
-   ```
+2. On each Agent machine, edit `%ProgramData%\TimeTracker\agent-settings.json`
+   to point `ServerBaseUrl` (and `ApiKey`, if you rotate it) at the new
+   server, then have the user log off/on — no reinstall needed.
 
 ## Updating
 
