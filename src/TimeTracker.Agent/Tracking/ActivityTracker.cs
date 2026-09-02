@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
 using TimeTracker.Agent.Interop;
 using TimeTracker.Agent.Storage;
+using TimeTracker.Agent.Sync;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Tracking;
@@ -23,6 +24,7 @@ public class ActivityTracker : BackgroundService
 
     private readonly IEventStore _store;
     private readonly DeviceIdentity _deviceIdentity;
+    private readonly DevicePolicyCache _policyCache;
     private readonly AgentOptions _options;
     private readonly ILogger<ActivityTracker> _logger;
 
@@ -31,11 +33,13 @@ public class ActivityTracker : BackgroundService
     public ActivityTracker(
         IEventStore store,
         DeviceIdentity deviceIdentity,
+        DevicePolicyCache policyCache,
         IOptions<AgentOptions> options,
         ILogger<ActivityTracker> logger)
     {
         _store = store;
         _deviceIdentity = deviceIdentity;
+        _policyCache = policyCache;
         _options = options.Value;
         _logger = logger;
     }
@@ -123,18 +127,23 @@ public class ActivityTracker : BackgroundService
 
         try
         {
-            await _store.AddAppUsageEventAsync(
-                new AppUsageEventDto(
-                    Guid.NewGuid(),
-                    _deviceIdentity.DeviceId,
-                    segment.ProcessName,
-                    segment.WindowTitle,
-                    segment.StartedAtUtc,
-                    endedAtUtc,
-                    duration),
-                cancellationToken);
+            var policy = _policyCache.Current;
 
-            if (KnownBrowsers.TryGetValue(segment.ProcessName, out var browser))
+            if (policy.CaptureAppUsage)
+            {
+                await _store.AddAppUsageEventAsync(
+                    new AppUsageEventDto(
+                        Guid.NewGuid(),
+                        _deviceIdentity.DeviceId,
+                        segment.ProcessName,
+                        segment.WindowTitle,
+                        segment.StartedAtUtc,
+                        endedAtUtc,
+                        duration),
+                    cancellationToken);
+            }
+
+            if (policy.CaptureUrlVisits && KnownBrowsers.TryGetValue(segment.ProcessName, out var browser))
             {
                 await _store.AddUrlVisitAsync(
                     new UrlVisitEventDto(

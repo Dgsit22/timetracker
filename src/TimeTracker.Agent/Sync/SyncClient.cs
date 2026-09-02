@@ -71,6 +71,7 @@ public class SyncClient : BackgroundService
             _deviceIdentity.DeviceId,
             AgentVersion,
             Environment.UserName,
+            Environment.MachineName,
             DateTimeOffset.UtcNow,
             batch.AppUsageEvents,
             batch.IdlePeriods,

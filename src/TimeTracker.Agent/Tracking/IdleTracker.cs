@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
 using TimeTracker.Agent.Interop;
 using TimeTracker.Agent.Storage;
+using TimeTracker.Agent.Sync;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Tracking;
@@ -14,6 +15,7 @@ public class IdleTracker : BackgroundService
 {
     private readonly IEventStore _store;
     private readonly DeviceIdentity _deviceIdentity;
+    private readonly DevicePolicyCache _policyCache;
     private readonly AgentOptions _options;
     private readonly ILogger<IdleTracker> _logger;
 
@@ -22,11 +24,13 @@ public class IdleTracker : BackgroundService
     public IdleTracker(
         IEventStore store,
         DeviceIdentity deviceIdentity,
+        DevicePolicyCache policyCache,
         IOptions<AgentOptions> options,
         ILogger<IdleTracker> logger)
     {
         _store = store;
         _deviceIdentity = deviceIdentity;
+        _policyCache = policyCache;
         _options = options.Value;
         _logger = logger;
     }
@@ -63,6 +67,11 @@ public class IdleTracker : BackgroundService
         if (!isIdle && _idleStartedAtUtc is { } startedAtUtc)
         {
             _idleStartedAtUtc = null;
+
+            if (!_policyCache.Current.CaptureIdle)
+            {
+                return;
+            }
 
             var duration = (now - startedAtUtc).TotalSeconds;
             await _store.AddIdlePeriodAsync(

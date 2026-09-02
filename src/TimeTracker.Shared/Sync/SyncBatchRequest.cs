@@ -10,6 +10,7 @@ public record SyncBatchRequest(
     Guid DeviceId,
     string AgentVersion,
     string UserName,
+    string MachineName,
     DateTimeOffset SentAtUtc,
     List<AppUsageEventDto> AppUsageEvents,
     List<IdlePeriodEventDto> IdlePeriods,

@@ -67,3 +67,22 @@ public class ScreenshotEvent
     public byte[] ImageBytes { get; set; } = default!;
     public DateTimeOffset ReceivedAtUtc { get; set; }
 }
+
+/// <summary>
+/// One row per Agent installation. Auto-registered on first sync; an admin can
+/// dial back which event types a given machine is allowed to report.
+/// </summary>
+public class Device
+{
+    public Guid DeviceId { get; set; }
+    public string MachineName { get; set; } = default!;
+    public string LastUserName { get; set; } = default!;
+    public DateTimeOffset FirstSeenUtc { get; set; }
+    public DateTimeOffset LastSeenUtc { get; set; }
+
+    public bool CaptureAppUsage { get; set; } = true;
+    public bool CaptureUrlVisits { get; set; } = true;
+    public bool CaptureIdle { get; set; } = true;
+    public bool CaptureSessionBreaks { get; set; } = true;
+    public bool CaptureScreenshots { get; set; } = true;
+}

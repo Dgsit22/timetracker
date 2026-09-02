@@ -14,9 +14,13 @@ public class AgentOptions
 
     public string ServerBaseUrl { get; set; } = "http://localhost:5081";
 
+    public string AgentApiKey { get; set; } = "";
+
     public int SyncIntervalSeconds { get; set; } = 30;
 
     public int SyncBatchSize { get; set; } = 200;
+
+    public int PolicyRefreshIntervalSeconds { get; set; } = 300;
 
     public string DataDirectory { get; set; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TimeTracker");

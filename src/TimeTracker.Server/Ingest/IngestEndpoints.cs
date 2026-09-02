@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
+using TimeTracker.Shared.Devices;
 using TimeTracker.Shared.Events;
 using TimeTracker.Shared.Sync;
 
@@ -8,10 +9,21 @@ namespace TimeTracker.Server.Ingest;
 
 public static class IngestEndpoints
 {
-    public static void MapIngestEndpoints(this WebApplication app)
+    private const string ApiKeyHeader = "X-Agent-Key";
+
+    public static void MapIngestEndpoints(this WebApplication app, IConfiguration configuration)
     {
-        app.MapPost("/api/ingest/sync", HandleSyncAsync);
-        app.MapGet("/api/screenshots/{eventId:guid}", HandleGetScreenshotAsync);
+        var apiKey = configuration["Agent:ApiKey"];
+
+        app.MapPost("/api/ingest/sync", HandleSyncAsync)
+            .AddEndpointFilter(new ApiKeyFilter(apiKey));
+
+        app.MapGet("/api/devices/{deviceId:guid}/policy", HandleGetPolicyAsync)
+            .AddEndpointFilter(new ApiKeyFilter(apiKey));
+
+        // Consumed by the admin console's <img> tags, so it uses cookie auth, not the agent API key.
+        app.MapGet("/api/screenshots/{eventId:guid}", HandleGetScreenshotAsync)
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> HandleSyncAsync(
@@ -44,67 +56,103 @@ public static class IngestEndpoints
             return Results.BadRequest("Malformed 'batch' JSON.");
         }
 
+        var device = await GetOrCreateDeviceAsync(db, batch, cancellationToken);
+
         var accepted = new List<Guid>();
         var rejected = new List<SyncErrorDto>();
 
-        await AddNewAsync(db.AppUsageEvents, batch.AppUsageEvents, dto => dto.EventId,
-            dto => new AppUsageEvent
-            {
-                EventId = dto.EventId,
-                DeviceId = batch.DeviceId,
-                UserName = batch.UserName,
-                ProcessName = dto.ProcessName,
-                WindowTitle = dto.WindowTitle,
-                StartedAtUtc = dto.StartedAtUtc,
-                EndedAtUtc = dto.EndedAtUtc,
-                DurationSeconds = dto.DurationSeconds,
-                ReceivedAtUtc = DateTimeOffset.UtcNow,
-            }, accepted, cancellationToken);
+        if (device.CaptureAppUsage)
+        {
+            await AddNewAsync(db.AppUsageEvents, batch.AppUsageEvents, dto => dto.EventId,
+                dto => new AppUsageEvent
+                {
+                    EventId = dto.EventId,
+                    DeviceId = batch.DeviceId,
+                    UserName = batch.UserName,
+                    ProcessName = dto.ProcessName,
+                    WindowTitle = dto.WindowTitle,
+                    StartedAtUtc = dto.StartedAtUtc,
+                    EndedAtUtc = dto.EndedAtUtc,
+                    DurationSeconds = dto.DurationSeconds,
+                    ReceivedAtUtc = DateTimeOffset.UtcNow,
+                }, accepted, cancellationToken);
+        }
+        else
+        {
+            accepted.AddRange(batch.AppUsageEvents.Select(e => e.EventId));
+        }
 
-        await AddNewAsync(db.IdlePeriods, batch.IdlePeriods, dto => dto.EventId,
-            dto => new IdlePeriodEvent
-            {
-                EventId = dto.EventId,
-                DeviceId = batch.DeviceId,
-                UserName = batch.UserName,
-                StartedAtUtc = dto.StartedAtUtc,
-                EndedAtUtc = dto.EndedAtUtc,
-                DurationSeconds = dto.DurationSeconds,
-                IdleThresholdSeconds = dto.IdleThresholdSeconds,
-                ReceivedAtUtc = DateTimeOffset.UtcNow,
-            }, accepted, cancellationToken);
+        if (device.CaptureIdle)
+        {
+            await AddNewAsync(db.IdlePeriods, batch.IdlePeriods, dto => dto.EventId,
+                dto => new IdlePeriodEvent
+                {
+                    EventId = dto.EventId,
+                    DeviceId = batch.DeviceId,
+                    UserName = batch.UserName,
+                    StartedAtUtc = dto.StartedAtUtc,
+                    EndedAtUtc = dto.EndedAtUtc,
+                    DurationSeconds = dto.DurationSeconds,
+                    IdleThresholdSeconds = dto.IdleThresholdSeconds,
+                    ReceivedAtUtc = DateTimeOffset.UtcNow,
+                }, accepted, cancellationToken);
+        }
+        else
+        {
+            accepted.AddRange(batch.IdlePeriods.Select(e => e.EventId));
+        }
 
-        await AddNewAsync(db.UrlVisits, batch.UrlVisits, dto => dto.EventId,
-            dto => new UrlVisitEvent
-            {
-                EventId = dto.EventId,
-                DeviceId = batch.DeviceId,
-                UserName = batch.UserName,
-                Browser = dto.Browser,
-                Url = dto.Url,
-                PageTitle = dto.PageTitle,
-                StartedAtUtc = dto.StartedAtUtc,
-                EndedAtUtc = dto.EndedAtUtc,
-                DurationSeconds = dto.DurationSeconds,
-                CaptureMethod = dto.CaptureMethod,
-                ReceivedAtUtc = DateTimeOffset.UtcNow,
-            }, accepted, cancellationToken);
+        if (device.CaptureUrlVisits)
+        {
+            await AddNewAsync(db.UrlVisits, batch.UrlVisits, dto => dto.EventId,
+                dto => new UrlVisitEvent
+                {
+                    EventId = dto.EventId,
+                    DeviceId = batch.DeviceId,
+                    UserName = batch.UserName,
+                    Browser = dto.Browser,
+                    Url = dto.Url,
+                    PageTitle = dto.PageTitle,
+                    StartedAtUtc = dto.StartedAtUtc,
+                    EndedAtUtc = dto.EndedAtUtc,
+                    DurationSeconds = dto.DurationSeconds,
+                    CaptureMethod = dto.CaptureMethod,
+                    ReceivedAtUtc = DateTimeOffset.UtcNow,
+                }, accepted, cancellationToken);
+        }
+        else
+        {
+            accepted.AddRange(batch.UrlVisits.Select(e => e.EventId));
+        }
 
-        await AddNewAsync(db.SessionBreaks, batch.SessionBreaks, dto => dto.EventId,
-            dto => new SessionBreakEvent
-            {
-                EventId = dto.EventId,
-                DeviceId = batch.DeviceId,
-                UserName = batch.UserName,
-                BreakStartUtc = dto.BreakStartUtc,
-                BreakEndUtc = dto.BreakEndUtc,
-                Reason = dto.Reason,
-                EndReason = dto.EndReason,
-                ReceivedAtUtc = DateTimeOffset.UtcNow,
-            }, accepted, cancellationToken);
+        if (device.CaptureSessionBreaks)
+        {
+            await AddNewAsync(db.SessionBreaks, batch.SessionBreaks, dto => dto.EventId,
+                dto => new SessionBreakEvent
+                {
+                    EventId = dto.EventId,
+                    DeviceId = batch.DeviceId,
+                    UserName = batch.UserName,
+                    BreakStartUtc = dto.BreakStartUtc,
+                    BreakEndUtc = dto.BreakEndUtc,
+                    Reason = dto.Reason,
+                    EndReason = dto.EndReason,
+                    ReceivedAtUtc = DateTimeOffset.UtcNow,
+                }, accepted, cancellationToken);
+        }
+        else
+        {
+            accepted.AddRange(batch.SessionBreaks.Select(e => e.EventId));
+        }
 
         foreach (var dto in batch.Screenshots)
         {
+            if (!device.CaptureScreenshots)
+            {
+                accepted.Add(dto.EventId);
+                continue;
+            }
+
             if (await db.Screenshots.AnyAsync(e => e.EventId == dto.EventId, cancellationToken))
             {
                 accepted.Add(dto.EventId);
@@ -146,6 +194,35 @@ public static class IngestEndpoints
         return Results.Ok(new SyncBatchResponse(accepted, rejected));
     }
 
+    private static async Task<Device> GetOrCreateDeviceAsync(
+        TimeTrackerDbContext db, SyncBatchRequest batch, CancellationToken cancellationToken)
+    {
+        var device = await db.Devices.FirstOrDefaultAsync(d => d.DeviceId == batch.DeviceId, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        if (device is null)
+        {
+            device = new Device
+            {
+                DeviceId = batch.DeviceId,
+                MachineName = batch.MachineName,
+                LastUserName = batch.UserName,
+                FirstSeenUtc = now,
+                LastSeenUtc = now,
+            };
+            db.Devices.Add(device);
+        }
+        else
+        {
+            device.MachineName = batch.MachineName;
+            device.LastUserName = batch.UserName;
+            device.LastSeenUtc = now;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return device;
+    }
+
     private static async Task AddNewAsync<TDto, TEntity>(
         DbSet<TEntity> set,
         List<TDto> incoming,
@@ -178,6 +255,24 @@ public static class IngestEndpoints
         }
     }
 
+    private static async Task<IResult> HandleGetPolicyAsync(
+        Guid deviceId, TimeTrackerDbContext db, CancellationToken cancellationToken)
+    {
+        var device = await db.Devices.FirstOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
+        if (device is null)
+        {
+            // Unregistered devices get the permissive default until their first sync creates a row.
+            return Results.Ok(new DeviceCapturePolicyDto(true, true, true, true, true));
+        }
+
+        return Results.Ok(new DeviceCapturePolicyDto(
+            device.CaptureAppUsage,
+            device.CaptureUrlVisits,
+            device.CaptureIdle,
+            device.CaptureSessionBreaks,
+            device.CaptureScreenshots));
+    }
+
     private static async Task<IResult> HandleGetScreenshotAsync(
         Guid eventId, TimeTrackerDbContext db, CancellationToken cancellationToken)
     {
@@ -189,5 +284,22 @@ public static class IngestEndpoints
         return screenshot is null
             ? Results.NotFound()
             : Results.File(screenshot.ImageBytes, screenshot.ContentType);
+    }
+
+    private class ApiKeyFilter(string? expectedKey) : IEndpointFilter
+    {
+        public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+        {
+            if (!string.IsNullOrEmpty(expectedKey))
+            {
+                var provided = context.HttpContext.Request.Headers[ApiKeyHeader].ToString();
+                if (!string.Equals(provided, expectedKey, StringComparison.Ordinal))
+                {
+                    return Results.Unauthorized();
+                }
+            }
+
+            return await next(context);
+        }
     }
 }

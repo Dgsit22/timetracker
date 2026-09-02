@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
 using TimeTracker.Server.Ingest;
@@ -9,11 +10,30 @@ builder.Services.AddRazorPages();
 builder.Services.AddDbContext<TimeTrackerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TimeTracker")));
 
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false;
+    })
+    .AddEntityFrameworkStores<TimeTrackerDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Admin));
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<TimeTrackerDbContext>().Database.Migrate();
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
 }
 
 // Configure the HTTP request pipeline.
@@ -29,9 +49,10 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
-app.MapIngestEndpoints();
+app.MapIngestEndpoints(app.Configuration);
 
 app.Run();

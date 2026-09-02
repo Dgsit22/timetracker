@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using TimeTracker.Server.Data;
 
 namespace TimeTracker.Server.Pages;
 
+[Authorize]
 public class ActivityModel : PageModel
 {
     private readonly TimeTrackerDbContext _db;

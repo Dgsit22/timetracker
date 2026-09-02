@@ -1,0 +1,61 @@
+@page
+@model UsersModel
+@{
+    ViewData["Title"] = "Users";
+}
+
+<h1>Users</h1>
+
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Display name</th>
+            <th>Roles</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var (user, roles) in Model.Users)
+        {
+            <tr>
+                <td>@user.Email</td>
+                <td>@user.DisplayName</td>
+                <td>@string.Join(", ", roles)</td>
+                <td>
+                    <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete @user.Email?');" class="d-inline">
+                        <input type="hidden" name="userId" value="@user.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h2>Add user</h2>
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<form method="post" asp-page-handler="Create" class="row g-2 align-items-end" style="max-width:640px">
+    <div class="col-auto">
+        <label class="form-label" asp-for="Input.Email"></label>
+        <input asp-for="Input.Email" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label" asp-for="Input.DisplayName"></label>
+        <input asp-for="Input.DisplayName" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label" asp-for="Input.Password"></label>
+        <input asp-for="Input.Password" class="form-control" type="password" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label" asp-for="Input.Role"></label>
+        <select asp-for="Input.Role" class="form-select">
+            <option value="Viewer">Viewer</option>
+            <option value="Admin">Admin</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Add</button>
+    </div>
+</form>

@@ -1,0 +1,71 @@
+@page
+@model DevicesModel
+@{
+    ViewData["Title"] = "Devices";
+}
+
+<h1>Devices</h1>
+<p class="text-muted">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them per-machine as needed.</p>
+
+@foreach (var device in Model.Devices)
+{
+    <form id="device-@device.DeviceId" method="post">@Html.AntiForgeryToken()</form>
+}
+
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Machine</th>
+            <th>Last user</th>
+            <th>First seen (UTC)</th>
+            <th>Last seen (UTC)</th>
+            <th>App usage</th>
+            <th>URL visits</th>
+            <th>Idle</th>
+            <th>Session breaks</th>
+            <th>Screenshots</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var device in Model.Devices)
+        {
+            var formId = $"device-{device.DeviceId}";
+            <tr>
+                <td title="@device.DeviceId">@device.MachineName</td>
+                <td>@device.LastUserName</td>
+                <td>@device.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>@device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>
+                    <input form="@formId" type="hidden" name="deviceId" value="@device.DeviceId" />
+                    <input form="@formId" type="hidden" name="captureAppUsage" value="false" />
+                    <input form="@formId" type="checkbox" name="captureAppUsage" value="true" checked="@device.CaptureAppUsage" />
+                </td>
+                <td>
+                    <input form="@formId" type="hidden" name="captureUrlVisits" value="false" />
+                    <input form="@formId" type="checkbox" name="captureUrlVisits" value="true" checked="@device.CaptureUrlVisits" />
+                </td>
+                <td>
+                    <input form="@formId" type="hidden" name="captureIdle" value="false" />
+                    <input form="@formId" type="checkbox" name="captureIdle" value="true" checked="@device.CaptureIdle" />
+                </td>
+                <td>
+                    <input form="@formId" type="hidden" name="captureSessionBreaks" value="false" />
+                    <input form="@formId" type="checkbox" name="captureSessionBreaks" value="true" checked="@device.CaptureSessionBreaks" />
+                </td>
+                <td>
+                    <input form="@formId" type="hidden" name="captureScreenshots" value="false" />
+                    <input form="@formId" type="checkbox" name="captureScreenshots" value="true" checked="@device.CaptureScreenshots" />
+                </td>
+                <td>
+                    <button form="@formId" type="submit" class="btn btn-sm btn-primary">Save</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.Devices.Count == 0)
+{
+    <p class="text-muted">No devices have synced yet.</p>
+}

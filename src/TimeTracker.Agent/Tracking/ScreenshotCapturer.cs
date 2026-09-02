@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
 using TimeTracker.Agent.Storage;
+using TimeTracker.Agent.Sync;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Tracking;
@@ -15,17 +16,20 @@ public class ScreenshotCapturer : BackgroundService
 {
     private readonly IEventStore _store;
     private readonly DeviceIdentity _deviceIdentity;
+    private readonly DevicePolicyCache _policyCache;
     private readonly AgentOptions _options;
     private readonly ILogger<ScreenshotCapturer> _logger;
 
     public ScreenshotCapturer(
         IEventStore store,
         DeviceIdentity deviceIdentity,
+        DevicePolicyCache policyCache,
         IOptions<AgentOptions> options,
         ILogger<ScreenshotCapturer> logger)
     {
         _store = store;
         _deviceIdentity = deviceIdentity;
+        _policyCache = policyCache;
         _options = options.Value;
         _logger = logger;
     }
@@ -50,6 +54,11 @@ public class ScreenshotCapturer : BackgroundService
 
     private async Task CaptureAllAsync(CancellationToken cancellationToken)
     {
+        if (!_policyCache.Current.CaptureScreenshots)
+        {
+            return;
+        }
+
         var capturedAtUtc = DateTimeOffset.UtcNow;
         var screens = Screen.AllScreens;
 

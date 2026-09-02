@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using TimeTracker.Agent.Storage;
+using TimeTracker.Agent.Sync;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Tracking;
@@ -13,14 +14,17 @@ public class SessionBreakTracker : BackgroundService
 {
     private readonly IEventStore _store;
     private readonly DeviceIdentity _deviceIdentity;
+    private readonly DevicePolicyCache _policyCache;
     private readonly ILogger<SessionBreakTracker> _logger;
 
     private (SessionBreakReason Reason, DateTimeOffset StartUtc)? _openBreak;
 
-    public SessionBreakTracker(IEventStore store, DeviceIdentity deviceIdentity, ILogger<SessionBreakTracker> logger)
+    public SessionBreakTracker(
+        IEventStore store, DeviceIdentity deviceIdentity, DevicePolicyCache policyCache, ILogger<SessionBreakTracker> logger)
     {
         _store = store;
         _deviceIdentity = deviceIdentity;
+        _policyCache = policyCache;
         _logger = logger;
     }
 
@@ -95,6 +99,12 @@ public class SessionBreakTracker : BackgroundService
         }
 
         _openBreak = null;
+
+        if (!_policyCache.Current.CaptureSessionBreaks)
+        {
+            return;
+        }
+
         var endUtc = DateTimeOffset.UtcNow;
 
         try
