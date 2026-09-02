@@ -12,6 +12,12 @@ public class AgentOptions
 
     public int ScreenshotIntervalSeconds { get; set; } = 600;
 
+    public string ServerBaseUrl { get; set; } = "http://localhost:5081";
+
+    public int SyncIntervalSeconds { get; set; } = 30;
+
+    public int SyncBatchSize { get; set; } = 200;
+
     public string DataDirectory { get; set; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TimeTracker");
 }

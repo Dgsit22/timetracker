@@ -13,4 +13,8 @@ public interface IEventStore
     Task AddSessionBreakAsync(SessionBreakEventDto evt, CancellationToken cancellationToken);
 
     Task AddScreenshotAsync(ScreenshotEventDto evt, byte[] imageBytes, CancellationToken cancellationToken);
+
+    Task<PendingBatch> GetPendingBatchAsync(int maxItems, CancellationToken cancellationToken);
+
+    Task RemoveEventsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken);
 }

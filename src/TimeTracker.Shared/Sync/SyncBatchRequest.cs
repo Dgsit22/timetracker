@@ -9,6 +9,7 @@ namespace TimeTracker.Shared.Sync;
 public record SyncBatchRequest(
     Guid DeviceId,
     string AgentVersion,
+    string UserName,
     DateTimeOffset SentAtUtc,
     List<AppUsageEventDto> AppUsageEvents,
     List<IdlePeriodEventDto> IdlePeriods,
