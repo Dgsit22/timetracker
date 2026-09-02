@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Runs from the Startup folder at logon; WinExe avoids flashing a console window. -->
+    <OutputType>WinExe</OutputType>
     <UserSecretsId>dotnet-TimeTracker.Agent-3cfb1ebb-b3ac-4cd8-9f15-f03857e5fc9b</UserSecretsId>
   </PropertyGroup>
 
@@ -12,7 +14,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="8.0.1" />
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 

@@ -6,3 +6,10 @@ obj/
 *.db-journal
 appsettings.Production.json
 KeyForgeSipActivator-Setup.exe
+.env
+installer/*.msi
+installer/*.wixpdb
+installer/*.log
+installer/bin/
+installer/obj/
+publish/

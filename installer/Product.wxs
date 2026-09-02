@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="TimeTracker Agent"
+           Manufacturer="DigiClarity"
+           Version="1.0.0.0"
+           UpgradeCode="6f6b1a1a-6e6c-4f7f-9b1b-7a1a2b3c4d5e"
+           Compressed="yes"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of TimeTracker Agent is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Passed via: msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=http://server:5081 AGENTAPIKEY=xxxxx -->
+    <Property Id="SERVERURL" Value="http://localhost:5081" />
+    <Property Id="AGENTAPIKEY" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TimeTracker Agent" />
+    </StandardDirectory>
+
+    <!--
+      Runs per-user from the all-users Startup folder, not as a LocalSystem service: a
+      Windows Service runs in Session 0, which has no interactive desktop, so foreground
+      window detection, idle detection, and screen capture all silently return nothing
+      useful there. Every user who logs into this machine gets their own Agent instance
+      launched at logon, with normal desktop access.
+      WiX 5's StandardDirectory whitelist has no all-users Startup entry, only the
+      per-user one, so it's built manually under CommonAppDataFolder (ProgramData).
+    -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Name="Microsoft">
+        <Directory Name="Windows">
+          <Directory Name="Start Menu">
+            <Directory Name="Programs">
+              <Directory Id="CommonStartupFolder" Name="StartUp" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="TimeTracker Agent" Level="1">
+      <ComponentGroupRef Id="AgentFiles" />
+      <ComponentRef Id="AgentExeComponent" />
+      <ComponentRef Id="StartupShortcutComponent" />
+    </Feature>
+
+    <!-- Everything except the exe, which gets its own component below (KeyPath for the write-config custom action). -->
+    <ComponentGroup Id="AgentFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\TimeTracker.Agent.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="AgentExeComponent" Directory="INSTALLFOLDER" Guid="8d6e6f5a-1234-4a2b-9c3d-1a2b3c4d5e6f">
+      <File Id="AgentExe" Source="$(var.PublishDir)\TimeTracker.Agent.exe" KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartupShortcutComponent" Directory="CommonStartupFolder" Guid="3a2b1c4d-5e6f-4a1b-8c2d-9e0f1a2b3c4d">
+      <Shortcut Id="StartupShortcut"
+                Name="TimeTracker Agent"
+                Description="Captures desktop activity and syncs it to the TimeTracker server."
+                Target="[#AgentExe]"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKLM"
+                      Key="Software\DigiClarity\TimeTracker Agent"
+                      Name="StartupShortcutInstalled"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes" />
+    </Component>
+
+    <!--
+      Config is delivered via a file the Agent writes to itself (agent-settings.json under
+      ProgramData), not machine environment variables: those aren't visible to processes
+      started before the next logon/reboot, so a freshly-installed Startup app wouldn't see
+      one set during this same install. The file approach works immediately.
+    -->
+    <CustomAction Id="WriteAgentConfig"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='&quot;[#AgentExe]&quot; --write-config &quot;[SERVERURL]&quot; &quot;[AGENTAPIKEY]&quot;'
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <InstallExecuteSequence>
+      <Custom Action="WriteAgentConfig" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

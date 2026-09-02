@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timetracker
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: src/TimeTracker.Server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5081:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__TimeTracker: "Host=postgres;Port=5432;Database=timetracker;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
+      Admin__Email: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
+      Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      Agent__ApiKey: ${AGENT_API_KEY:?set AGENT_API_KEY in .env}
+
+volumes:
+  postgres-data:
