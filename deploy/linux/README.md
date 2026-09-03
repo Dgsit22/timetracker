@@ -43,6 +43,14 @@
    Admin account. Change that password (or add other Admin/Viewer users from
    the Users page) once you're in.
 
+   If login fails with "Invalid login attempt", the seeded account was
+   probably never created - `ADMIN_PASSWORD` must satisfy ASP.NET Core
+   Identity's default rules (6+ chars, upper, lower, digit, non-alphanumeric)
+   or admin creation silently fails. Check `docker compose logs server` for
+   an Admin seeding warning/error, fix `ADMIN_PASSWORD` in `.env`, then
+   `docker compose up -d` again (safe to rerun - it only seeds when no users
+   exist yet).
+
 ## Pointing Agents at this server
 
 Each Windows Agent needs:
