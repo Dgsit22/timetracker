@@ -27,7 +27,7 @@ dotnet publish src/TimeTracker.Agent/TimeTracker.Agent.csproj -c Release -r win-
 
 # 2. Build the MSI
 cd installer
-wix build Product.wxs -arch x64 -d PublishDir="../publish/agent-win-x64" -o TimeTracker.Agent-Setup.msi
+wix build Product.wxs -arch x64 -ext WixToolset.UI.wixext -d PublishDir="../publish/agent-win-x64" -o TimeTracker.Agent-Setup.msi
 ```
 
 `-arch x64` is required — without it WiX defaults to x86 and `ProgramFiles64Folder`

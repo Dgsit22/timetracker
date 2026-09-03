@@ -8,7 +8,8 @@
            Compressed="yes"
            Scope="perMachine">
 
-    <MajorUpgrade DowngradeErrorMessage="A newer version of TimeTracker Agent is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of TimeTracker Agent is already installed."
+                  AllowSameVersionUpgrades="yes" />
     <MediaTemplate EmbedCab="yes" />
 
     <!--
@@ -113,15 +114,28 @@
       ProgramData), not machine environment variables: those aren't visible to processes
       started before the next logon/reboot, so a freshly-installed Startup app wouldn't see
       one set during this same install. The file approach works immediately.
+
+      WriteAgentConfig itself is deferred (it runs elevated, after files are staged), and
+      deferred custom actions can't see the property table directly - [SERVERURL] and
+      [AGENTAPIKEY] would resolve to blank there, silently dropping whatever the wizard
+      collected. So an immediate CA first stashes both values, pipe-joined, into a property
+      named identically to the deferred CA ("WriteAgentConfig") - the installer engine
+      copies that into the reserved CustomActionData property right before the deferred CA
+      runs, which is the only channel a deferred CA has for authored data.
     -->
+    <CustomAction Id="SetWriteAgentConfigData"
+                  Property="WriteAgentConfig"
+                  Value="[SERVERURL]|[AGENTAPIKEY]" />
+
     <CustomAction Id="WriteAgentConfig"
                   Directory="INSTALLFOLDER"
-                  ExeCommand='&quot;[#AgentExe]&quot; --write-config &quot;[SERVERURL]&quot; &quot;[AGENTAPIKEY]&quot;'
+                  ExeCommand='&quot;[#AgentExe]&quot; --write-config &quot;[CustomActionData]&quot;'
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />
 
     <InstallExecuteSequence>
+      <Custom Action="SetWriteAgentConfigData" Before="WriteAgentConfig" Condition="NOT Installed" />
       <Custom Action="WriteAgentConfig" After="InstallFiles" Condition="NOT Installed" />
     </InstallExecuteSequence>
 

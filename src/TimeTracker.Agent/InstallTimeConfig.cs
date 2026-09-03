@@ -5,12 +5,14 @@ namespace TimeTracker.Agent;
 
 /// <summary>
 /// Writes %ProgramData%\TimeTracker\agent-settings.json, which the MSI installer
-/// invokes at install time (as `TimeTracker.Agent.exe --write-config &lt;serverUrl&gt; &lt;apiKey&gt;`)
+/// invokes at install time (as `TimeTracker.Agent.exe --write-config &lt;serverUrl&gt;|&lt;apiKey&gt;`)
 /// instead of relying on machine environment variables: a Windows Service inherits
 /// its environment from the Service Control Manager's snapshot at boot, so a fresh
 /// install's machine env var isn't visible to the service until a reboot. This file
 /// is read as a config layer on every startup, so editing it and restarting the
 /// service (no reboot needed) is enough to repoint the Agent later.
+/// Both values arrive pipe-joined in a single argument: the installer's deferred
+/// custom action can only pass one CustomActionData string (see Product.wxs).
 /// Also pre-creates the Event Log source here, while running elevated during install,
 /// since a normal per-user run afterward won't have rights to create a new one.
 /// </summary>
@@ -29,8 +31,9 @@ public static class InstallTimeConfig
             return false;
         }
 
-        var serverUrl = args.Length > 1 ? args[1] : "";
-        var apiKey = args.Length > 2 ? args[2] : "";
+        var parts = args.Length > 1 ? args[1].Split('|', 2) : Array.Empty<string>();
+        var serverUrl = parts.Length > 0 ? parts[0] : "";
+        var apiKey = parts.Length > 1 ? parts[1] : "";
 
         var path = GetPath();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
