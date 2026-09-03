@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="TimeTracker Agent"
            Manufacturer="DigiClarity"
            Version="1.0.0.0"
@@ -10,9 +11,46 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of TimeTracker Agent is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Passed via: msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=http://server:5081 AGENTAPIKEY=xxxxx -->
+    <!--
+      SERVERURL/AGENTAPIKEY can be set two ways:
+        - GUI install (double-click the MSI, or `msiexec /i`): a wizard page (ServerConfigDlg,
+          below) prompts for both before Install.
+        - Silent install (push deployment): `msiexec /i ... /qn SERVERURL=... AGENTAPIKEY=...`
+          skips all UI, so the wizard page never shows - these Property defaults/values are
+          used as-is.
+    -->
     <Property Id="SERVERURL" Value="http://localhost:5081" />
     <Property Id="AGENTAPIKEY" Secure="yes" />
+
+    <ui:WixUI Id="WixUI_Minimal" />
+
+    <UI>
+      <!-- Insert ServerConfigDlg between the welcome screen and the license-free "ready to install" screen. -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="ServerConfigDlg" Order="10" Condition="1" />
+      <Publish Dialog="ServerConfigDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="1" Condition="1" />
+      <Publish Dialog="ServerConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1" Condition="1" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ServerConfigDlg" Order="10" Condition="1" />
+
+      <Dialog Id="ServerConfigDlg" Width="370" Height="270" Title="TimeTracker Agent Setup">
+        <Control Id="Title" Type="Text" X="15" Y="15" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="Server connection" />
+        <Control Id="Description" Type="Text" X="15" Y="32" Width="340" Height="24" Transparent="yes" NoPrefix="yes" Text="Enter the TimeTracker server this Agent should send activity reports to." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+        <Control Id="ServerUrlLabel" Type="Text" X="20" Y="70" Width="330" Height="15" NoPrefix="yes" Text="Server URL (e.g. http://192.168.0.15:5081):" />
+        <Control Id="ServerUrlEdit" Type="Edit" X="20" Y="86" Width="330" Height="18" Property="SERVERURL" />
+
+        <Control Id="ApiKeyLabel" Type="Text" X="20" Y="114" Width="330" Height="15" NoPrefix="yes" Text="Agent API key:" />
+        <Control Id="ApiKeyEdit" Type="Edit" X="20" Y="130" Width="330" Height="18" Property="AGENTAPIKEY" />
+
+        <Control Id="HintText" Type="Text" X="20" Y="156" Width="330" Height="60" Transparent="yes" NoPrefix="yes" Text="Both values must match this server's deployment: the URL it's reachable at, and the AGENT_API_KEY set in its .env file. Ask your administrator if you're not sure." />
+
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" Condition="1" />
+        </Control>
+      </Dialog>
+    </UI>
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="TimeTracker Agent" />

@@ -30,6 +30,9 @@ services:
       Admin__Email: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       Agent__ApiKey: ${AGENT_API_KEY:?set AGENT_API_KEY in .env}
+    volumes:
+      - dataprotection-keys:/app/keys
 
 volumes:
   postgres-data:
+  dataprotection-keys:

@@ -10,6 +10,12 @@ builder.Services.AddRazorPages();
 builder.Services.AddDbContext<TimeTrackerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TimeTracker")));
 
+// Persist Data Protection keys across container restarts/redeploys - without
+// this, every restart invalidates in-flight antiforgery tokens and login cookies.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"))
+    .SetApplicationName("TimeTracker.Server");
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.SignIn.RequireConfirmedAccount = false;
