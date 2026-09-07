@@ -26,11 +26,27 @@
     <ui:WixUI Id="WixUI_Minimal" />
 
     <UI>
-      <!-- Insert ServerConfigDlg between the welcome screen and the license-free "ready to install" screen. -->
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="ServerConfigDlg" Order="10" Condition="1" />
-      <Publish Dialog="ServerConfigDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="1" Condition="1" />
-      <Publish Dialog="ServerConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1" Condition="1" />
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ServerConfigDlg" Order="10" Condition="1" />
+      <!--
+        Show ServerConfigDlg as the very first screen, ahead of the stock Welcome/EULA/Install
+        dialog. Two earlier approaches both failed silently:
+          1. Publishing WelcomeDlg->Next->NewDialog=ServerConfigDlg: WiX 5's WixUI_Minimal entry
+             dialog is actually WelcomeEulaDlg (merged Welcome+EULA), not the old WelcomeDlg -
+             confirmed via `msiexec /l*v`, which logs "Skipping action: WelcomeDlg (condition is
+             false)".
+          2. Publishing WelcomeEulaDlg->Next->NewDialog=ServerConfigDlg: WelcomeEulaDlg has no
+             "Next" control at all (confirmed via the compiled MSI's Control table) - its only
+             forward button is "Install", which fires EndDialog=Return directly and ends the whole
+             UI sequence, so a ControlEvent on a nonexistent "Next" control never fires.
+        Scheduling our own dialog directly in InstallUISequence, ahead of the library's ("NOT
+        Installed" matches its own condition on WelcomeEulaDlg, so it's skipped the same way on a
+        repair/maintenance run), sidesteps both: WelcomeEulaDlg itself is never touched, so its
+        Install button keeps working exactly as WiX authored it once our page hands off to it.
+      -->
+      <InstallUISequence>
+        <Show Dialog="ServerConfigDlg" Before="WelcomeEulaDlg" Condition="NOT Installed" />
+      </InstallUISequence>
+
+      <Publish Dialog="ServerConfigDlg" Control="Next" Event="NewDialog" Value="WelcomeEulaDlg" Order="1" Condition="1" />
 
       <Dialog Id="ServerConfigDlg" Width="370" Height="270" Title="TimeTracker Agent Setup">
         <Control Id="Title" Type="Text" X="15" Y="15" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="Server connection" />
@@ -45,7 +61,6 @@
 
         <Control Id="HintText" Type="Text" X="20" Y="156" Width="330" Height="60" Transparent="yes" NoPrefix="yes" Text="Both values must match this server's deployment: the URL it's reachable at, and the AGENT_API_KEY set in its .env file. Ask your administrator if you're not sure." />
 
-        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
           <Publish Event="SpawnDialog" Value="CancelDlg" Condition="1" />
