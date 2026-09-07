@@ -51,6 +51,22 @@ msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=http://your-server:5081 AGE
 For a push deployment (GPO, SCCM, Intune), run the same `msiexec` command
 per target machine with your real `SERVERURL`/`AGENTAPIKEY`.
 
+## Troubleshooting
+
+The install adds a **Test Connection** shortcut under the "TimeTracker Agent"
+Start Menu folder. It re-reads the installed `agent-settings.json`, makes the
+same authenticated request `SyncClient` makes (`GET /api/devices/{id}/policy`
+with the `X-Agent-Key` header), and shows a pass/fail message box - success
+means the current Server URL and API key both work, without needing to wait
+for real activity to sync or dig through Event Viewer. Run it any time you're
+unsure whether an Agent is actually reaching the server (e.g. after
+repointing it, or after a server redeploy).
+
+It can also be run directly, e.g. to test values before installing:
+```
+TimeTracker.Agent.exe --test-connection "http://your-server:5081|your-agent-api-key"
+```
+
 ## Uninstall
 
 ```

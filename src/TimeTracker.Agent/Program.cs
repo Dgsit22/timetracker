@@ -10,6 +10,11 @@ if (InstallTimeConfig.TryHandleCommandLine(args))
     return;
 }
 
+if (ConnectionTest.TryHandleCommandLine(args))
+{
+    return;
+}
+
 var builder = Host.CreateApplicationBuilder(args);
 
 // Runs per-user from the Startup folder, not as a LocalSystem service: a Windows
