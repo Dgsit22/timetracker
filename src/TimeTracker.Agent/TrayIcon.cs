@@ -28,7 +28,9 @@ public sealed class AgentTrayIcon : IDisposable
 
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            // The exe's own icon (ApplicationIcon in the .csproj) - same branded clock icon
+            // shown in Explorer/Task Manager, so it's recognizable there too.
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
             Text = "TimeTracker Agent",
             ContextMenuStrip = menu,
             Visible = true,

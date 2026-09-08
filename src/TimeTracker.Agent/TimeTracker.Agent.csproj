@@ -7,6 +7,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Runs from the Startup folder at logon; WinExe avoids flashing a console window. -->
     <OutputType>WinExe</OutputType>
+    <!-- Shows in Explorer/Task Manager/the tray icon (see TrayIcon.cs) so the Agent is
+         recognizable instead of using the generic default .NET exe icon. -->
+    <ApplicationIcon>Assets\agent-icon.ico</ApplicationIcon>
     <UserSecretsId>dotnet-TimeTracker.Agent-3cfb1ebb-b3ac-4cd8-9f15-f03857e5fc9b</UserSecretsId>
   </PropertyGroup>
 
