@@ -40,44 +40,44 @@
                 <td>@DevicesModel.FormatIdle(Model.IdleTodayByDevice.GetValueOrDefault(device.DeviceId))</td>
                 <td>
                     <input form="@formId" type="hidden" name="deviceId" value="@device.DeviceId" />
-                    <input form="@formId" type="hidden" name="captureAppUsage" value="false" />
                     <div class="form-check form-switch mb-0">
                         <input form="@formId" class="form-check-input" type="checkbox" role="switch"
                                id="captureAppUsage-@device.DeviceId" name="captureAppUsage" value="true"
                                checked="@device.CaptureAppUsage" />
                     </div>
+                    <input form="@formId" type="hidden" name="captureAppUsage" value="false" />
                 </td>
                 <td>
-                    <input form="@formId" type="hidden" name="captureUrlVisits" value="false" />
                     <div class="form-check form-switch mb-0">
                         <input form="@formId" class="form-check-input" type="checkbox" role="switch"
                                id="captureUrlVisits-@device.DeviceId" name="captureUrlVisits" value="true"
                                checked="@device.CaptureUrlVisits" />
                     </div>
+                    <input form="@formId" type="hidden" name="captureUrlVisits" value="false" />
                 </td>
                 <td>
-                    <input form="@formId" type="hidden" name="captureIdle" value="false" />
                     <div class="form-check form-switch mb-0">
                         <input form="@formId" class="form-check-input" type="checkbox" role="switch"
                                id="captureIdle-@device.DeviceId" name="captureIdle" value="true"
                                checked="@device.CaptureIdle" />
                     </div>
+                    <input form="@formId" type="hidden" name="captureIdle" value="false" />
                 </td>
                 <td>
-                    <input form="@formId" type="hidden" name="captureSessionBreaks" value="false" />
                     <div class="form-check form-switch mb-0">
                         <input form="@formId" class="form-check-input" type="checkbox" role="switch"
                                id="captureSessionBreaks-@device.DeviceId" name="captureSessionBreaks" value="true"
                                checked="@device.CaptureSessionBreaks" />
                     </div>
+                    <input form="@formId" type="hidden" name="captureSessionBreaks" value="false" />
                 </td>
                 <td>
-                    <input form="@formId" type="hidden" name="captureScreenshots" value="false" />
                     <div class="form-check form-switch mb-0">
                         <input form="@formId" class="form-check-input" type="checkbox" role="switch"
                                id="captureScreenshots-@device.DeviceId" name="captureScreenshots" value="true"
                                checked="@device.CaptureScreenshots" />
                     </div>
+                    <input form="@formId" type="hidden" name="captureScreenshots" value="false" />
                 </td>
                 <td>
                     <button form="@formId" type="submit" class="btn btn-sm btn-primary">Save</button>
