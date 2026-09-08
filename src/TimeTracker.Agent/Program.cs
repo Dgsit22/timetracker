@@ -4,6 +4,7 @@ using TimeTracker.Agent.Configuration;
 using TimeTracker.Agent.Storage;
 using TimeTracker.Agent.Sync;
 using TimeTracker.Agent.Tracking;
+using System.Windows.Forms;
 
 if (InstallTimeConfig.TryHandleCommandLine(args))
 {
@@ -65,4 +66,20 @@ builder.Services.AddHostedService<PolicySyncService>();
 builder.Services.AddHostedService<SyncClient>();
 
 var host = builder.Build();
-host.Run();
+await host.StartAsync();
+
+// The Agent's only visible UI is a tray icon (see TrayIcon.cs) - it needs a WinForms
+// message loop, which the Generic Host doesn't provide on its own. Run that loop on its
+// own explicitly-created STA thread rather than assuming the top-level Main's own
+// apartment state, so this doesn't depend on SDK-inferred [STAThread] behavior.
+var serverUrl = ConnectionTest.GetConfiguredServerUrl();
+var trayThread = new Thread(() =>
+{
+    using var trayIcon = new AgentTrayIcon(serverUrl);
+    Application.Run();
+});
+trayThread.SetApartmentState(ApartmentState.STA);
+trayThread.Start();
+trayThread.Join();
+
+await host.StopAsync();

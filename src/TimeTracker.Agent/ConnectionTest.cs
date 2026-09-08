@@ -31,6 +31,17 @@ public static class ConnectionTest
         return true;
     }
 
+    // For the tray icon's "Test Connection" menu item: runs the same check in-process
+    // instead of spawning a second exe just to show a result MessageBox.
+    public static Task RunFromInstalledConfigAsync()
+    {
+        var (serverUrl, apiKey) = ReadFromInstalledConfig();
+        return RunAsync(serverUrl, apiKey);
+    }
+
+    // For the tray icon's "Open Server" menu item.
+    public static string GetConfiguredServerUrl() => ReadFromInstalledConfig().ServerUrl;
+
     private static (string ServerUrl, string ApiKey) ParsePipeJoined(string arg)
     {
         var parts = arg.Split('|', 2);
