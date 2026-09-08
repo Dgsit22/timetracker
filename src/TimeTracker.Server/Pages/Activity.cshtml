@@ -19,6 +19,41 @@
             }
         </select>
     </div>
+    <div class="col-auto">
+        <label class="col-form-label" for="DeviceId">Device</label>
+    </div>
+    <div class="col-auto">
+        <select class="form-select" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
+            <option value="">(all devices)</option>
+            @foreach (var device in Model.KnownDevices)
+            {
+                <option value="@device.DeviceId" selected="@(device.DeviceId == Model.DeviceId)">@device.MachineName</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="col-form-label" for="FromDate">From</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" class="form-control" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+    </div>
+    <div class="col-auto">
+        <label class="col-form-label" for="ToDate">To</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" class="form-control" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+    </div>
+    <div class="col-auto d-flex flex-wrap gap-2">
+        @foreach (var type in ActivityModel.EventTypes)
+        {
+            var isChecked = !Model.TypesFilterApplied || (Model.Types?.Contains(type) ?? false);
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="Types_@type" name="Types" value="@type" checked="@isChecked" onchange="this.form.submit()" />
+                <label class="form-check-label" for="Types_@type">@type</label>
+            </div>
+        }
+        <input type="hidden" name="TypesFilterApplied" value="true" />
+    </div>
 </form>
 
 <table class="table table-sm table-striped">

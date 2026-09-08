@@ -18,9 +18,34 @@ public class DevicesModel : PageModel
 
     public List<Device> Devices { get; private set; } = new();
 
+    public Dictionary<Guid, TimeSpan> IdleTodayByDevice { get; private set; } = new();
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Devices = await _db.Devices.OrderBy(d => d.MachineName).ToListAsync(cancellationToken);
+
+        // "Today" is a UTC calendar day, consistent with FirstSeenUtc/LastSeenUtc already shown
+        // raw-UTC on this page - not converted to any admin's local time.
+        var todayStartUtc = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        var todayEndUtc = todayStartUtc.AddDays(1);
+
+        IdleTodayByDevice = await _db.IdlePeriods
+            .Where(p => p.StartedAtUtc >= todayStartUtc && p.StartedAtUtc < todayEndUtc)
+            .GroupBy(p => p.DeviceId)
+            .Select(g => new { DeviceId = g.Key, TotalSeconds = g.Sum(p => p.DurationSeconds) })
+            .ToDictionaryAsync(x => x.DeviceId, x => TimeSpan.FromSeconds(x.TotalSeconds), cancellationToken);
+    }
+
+    public static string FormatIdle(TimeSpan idle)
+    {
+        if (idle <= TimeSpan.Zero)
+        {
+            return "0m";
+        }
+
+        var hours = (int)idle.TotalHours;
+        var minutes = idle.Minutes;
+        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
     }
 
     public async Task<IActionResult> OnPostAsync(
