@@ -1,4 +1,5 @@
 @page
+@using System.Text.Json
 @model ActivityModel
 @{
     ViewData["Title"] = "Activity";
@@ -56,6 +57,44 @@
     </div>
 </form>
 
+@if (Model.DeviceSummaries.Count > 0)
+{
+    <div class="mb-4">
+        @foreach (var summary in Model.DeviceSummaries)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><strong>@summary.MachineName</strong></div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-auto">
+                            <div class="text-muted small">Active time</div>
+                            <div class="fs-4">@ActivityModel.FormatDuration(summary.ActiveSeconds)</div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="text-muted small">Idle time</div>
+                            <div class="fs-4">@ActivityModel.FormatDuration(summary.IdleSeconds)</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Top 5 Apps</h6>
+                            <div style="height:220px">
+                                <canvas id="chart-apps-@summary.DeviceId"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Top 5 Websites</h6>
+                            <div style="height:220px">
+                                <canvas id="chart-sites-@summary.DeviceId"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
 <table class="table table-sm table-striped">
     <thead>
         <tr>
@@ -94,4 +133,35 @@
 @if (Model.Rows.Count == 0)
 {
     <p class="text-muted">No activity received yet. Make sure the Agent's sync client is running and pointed at this server.</p>
+}
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.js"></script>
+    <script>
+        const deviceChartData = @Html.Raw(JsonSerializer.Serialize(
+            Model.DeviceSummaries.Select(s => new { deviceId = s.DeviceId, topApps = s.TopApps, topSites = s.TopSites }),
+            ActivityModel.ChartJsonOptions));
+
+        function renderDonut(canvasId, slices) {
+            const el = document.getElementById(canvasId);
+            if (!el) return;
+            if (!slices || slices.length === 0) {
+                el.replaceWith(Object.assign(document.createElement('p'), { className: 'text-muted', textContent: 'No data' }));
+                return;
+            }
+            new Chart(el, {
+                type: 'doughnut',
+                data: {
+                    labels: slices.map(s => s.label),
+                    datasets: [{ data: slices.map(s => s.seconds) }]
+                },
+                options: { maintainAspectRatio: false }
+            });
+        }
+
+        deviceChartData.forEach(d => {
+            renderDonut('chart-apps-' + d.deviceId, d.topApps);
+            renderDonut('chart-sites-' + d.deviceId, d.topSites);
+        });
+    </script>
 }

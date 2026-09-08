@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -23,6 +24,10 @@ public class ActivityModel : PageModel
     public List<string> KnownUsers { get; private set; } = new();
 
     public List<Device> KnownDevices { get; private set; } = new();
+
+    public List<DeviceSummary> DeviceSummaries { get; private set; } = new();
+
+    public static readonly JsonSerializerOptions ChartJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     [BindProperty(SupportsGet = true)]
     public string? UserName { get; set; }
@@ -104,6 +109,76 @@ public class ActivityModel : PageModel
             screenshots = screenshots.Where(e => e.CapturedAtUtc < to);
         }
 
+        // Per-device summary cards: driven by Device + date range only, deliberately not UserName
+        // or the event-type checkboxes below - it's a device-level aggregate, a separate concern
+        // from which raw rows the results table shows.
+        var summaryAppUsage = _db.AppUsageEvents.AsQueryable();
+        var summaryIdle = _db.IdlePeriods.AsQueryable();
+        var summaryUrlVisits = _db.UrlVisits.AsQueryable();
+
+        if (DeviceId is { } summaryDeviceId)
+        {
+            summaryAppUsage = summaryAppUsage.Where(e => e.DeviceId == summaryDeviceId);
+            summaryIdle = summaryIdle.Where(e => e.DeviceId == summaryDeviceId);
+            summaryUrlVisits = summaryUrlVisits.Where(e => e.DeviceId == summaryDeviceId);
+        }
+
+        if (fromUtc is { } summaryFrom)
+        {
+            summaryAppUsage = summaryAppUsage.Where(e => e.StartedAtUtc >= summaryFrom);
+            summaryIdle = summaryIdle.Where(e => e.StartedAtUtc >= summaryFrom);
+            summaryUrlVisits = summaryUrlVisits.Where(e => e.StartedAtUtc >= summaryFrom);
+        }
+
+        if (toUtcExclusive is { } summaryTo)
+        {
+            summaryAppUsage = summaryAppUsage.Where(e => e.StartedAtUtc < summaryTo);
+            summaryIdle = summaryIdle.Where(e => e.StartedAtUtc < summaryTo);
+            summaryUrlVisits = summaryUrlVisits.Where(e => e.StartedAtUtc < summaryTo);
+        }
+
+        var activeTotals = await summaryAppUsage
+            .GroupBy(e => e.DeviceId)
+            .Select(g => new { g.Key, Total = g.Sum(e => e.DurationSeconds) })
+            .ToDictionaryAsync(x => x.Key, x => x.Total, cancellationToken);
+
+        var idleTotals = await summaryIdle
+            .GroupBy(e => e.DeviceId)
+            .Select(g => new { g.Key, Total = g.Sum(e => e.DurationSeconds) })
+            .ToDictionaryAsync(x => x.Key, x => x.Total, cancellationToken);
+
+        var appTotals = await summaryAppUsage
+            .GroupBy(e => new { e.DeviceId, e.ProcessName })
+            .Select(g => new { g.Key.DeviceId, g.Key.ProcessName, Total = g.Sum(e => e.DurationSeconds) })
+            .ToListAsync(cancellationToken);
+        var topAppsByDevice = appTotals.GroupBy(x => x.DeviceId)
+            .ToDictionary(g => g.Key, g => BuildTopSlices(g.Select(x => (x.ProcessName, x.Total))));
+
+        // Host extraction has no SQL translation, so pull narrow (device, url, duration) tuples and
+        // group client-side - no heavier than the existing table's own per-row UrlVisit projection.
+        var urlTuples = await summaryUrlVisits
+            .Select(e => new { e.DeviceId, e.Url, e.DurationSeconds })
+            .ToListAsync(cancellationToken);
+        var topSitesByDevice = urlTuples
+            .GroupBy(x => (x.DeviceId, Host: GetUrlHost(x.Url)))
+            .Select(g => new { g.Key.DeviceId, g.Key.Host, Total = g.Sum(x => x.DurationSeconds) })
+            .GroupBy(x => x.DeviceId)
+            .ToDictionary(g => g.Key, g => BuildTopSlices(g.Select(x => (x.Host, x.Total))));
+
+        var devicesToSummarize = DeviceId is { } filterDeviceId
+            ? KnownDevices.Where(d => d.DeviceId == filterDeviceId)
+            : KnownDevices.Where(d => activeTotals.ContainsKey(d.DeviceId) || idleTotals.ContainsKey(d.DeviceId));
+
+        DeviceSummaries = devicesToSummarize
+            .Select(d => new DeviceSummary(
+                d.DeviceId, d.MachineName,
+                activeTotals.GetValueOrDefault(d.DeviceId),
+                idleTotals.GetValueOrDefault(d.DeviceId),
+                topAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
+                topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>()))
+            .OrderByDescending(s => s.ActiveSeconds)
+            .ToList();
+
         var includedTypes = TypesFilterApplied
             ? (Types ?? Array.Empty<string>()).ToHashSet()
             : EventTypes.ToHashSet();
@@ -161,6 +236,35 @@ public class ActivityModel : PageModel
 
         Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(200).ToList();
     }
+
+    private static string GetUrlHost(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "(unknown)";
+
+    private static List<CategorySlice> BuildTopSlices(IEnumerable<(string Label, double Seconds)> items, int topN = 5)
+    {
+        var ranked = items.OrderByDescending(x => x.Seconds).ToList();
+        var top = ranked.Take(topN).Select(x => new CategorySlice(x.Label, x.Seconds)).ToList();
+        var otherTotal = ranked.Skip(topN).Sum(x => x.Seconds);
+        if (otherTotal > 0)
+        {
+            top.Add(new CategorySlice("Other", otherTotal));
+        }
+
+        return top;
+    }
+
+    public static string FormatDuration(double seconds)
+    {
+        if (seconds <= 0)
+        {
+            return "0m";
+        }
+
+        var span = TimeSpan.FromSeconds(seconds);
+        var hours = (int)span.TotalHours;
+        var minutes = span.Minutes;
+        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
+    }
 }
 
 public record ActivityRow(
@@ -171,3 +275,13 @@ public record ActivityRow(
     string Details,
     double? DurationSeconds,
     Guid? ScreenshotId);
+
+public record CategorySlice(string Label, double Seconds);
+
+public record DeviceSummary(
+    Guid DeviceId,
+    string MachineName,
+    double ActiveSeconds,
+    double IdleSeconds,
+    List<CategorySlice> TopApps,
+    List<CategorySlice> TopSites);
