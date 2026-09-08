@@ -4,15 +4,17 @@
     ViewData["Title"] = "Devices";
 }
 
-<h1>Devices</h1>
-<p class="text-muted">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them per-machine as needed.</p>
+<h1 class="page-heading">Devices</h1>
+<p class="page-subtitle">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them per-machine as needed.</p>
 
 @foreach (var device in Model.Devices)
 {
     <form id="device-@device.DeviceId" method="post">@Html.AntiForgeryToken()</form>
 }
 
-<table class="table table-sm">
+<div class="card">
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
     <thead>
         <tr>
             <th>Machine</th>
@@ -86,8 +88,12 @@
         }
     </tbody>
 </table>
-
+</div>
 @if (Model.Devices.Count == 0)
 {
-    <p class="text-muted">No devices have synced yet.</p>
+    <div class="empty-state">
+        <div class="empty-state-icon">&#128421;</div>
+        <div>No devices have synced yet.</div>
+    </div>
 }
+</div>

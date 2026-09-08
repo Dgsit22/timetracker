@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -27,8 +26,6 @@ public class ActivityModel : PageModel
 
     public List<DeviceSummary> DeviceSummaries { get; private set; } = new();
 
-    public static readonly JsonSerializerOptions ChartJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
     [BindProperty(SupportsGet = true)]
     public string? UserName { get; set; }
 
@@ -52,22 +49,26 @@ public class ActivityModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        KnownUsers = await _db.AppUsageEvents.Select(e => e.UserName)
+        var excludedUserNames = await ActivityAggregation.GetExcludedUserNamesAsync(_db, cancellationToken);
+
+        KnownUsers = (await _db.AppUsageEvents.Select(e => e.UserName)
             .Union(_db.IdlePeriods.Select(e => e.UserName))
             .Union(_db.UrlVisits.Select(e => e.UserName))
             .Union(_db.SessionBreaks.Select(e => e.UserName))
             .Union(_db.Screenshots.Select(e => e.UserName))
             .Distinct()
             .OrderBy(u => u)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken))
+            .Where(u => !excludedUserNames.Contains(u))
+            .ToList();
 
         KnownDevices = await _db.Devices.OrderBy(d => d.MachineName).ToListAsync(cancellationToken);
 
-        var appUsage = _db.AppUsageEvents.AsQueryable();
-        var idle = _db.IdlePeriods.AsQueryable();
-        var urlVisits = _db.UrlVisits.AsQueryable();
-        var breaks = _db.SessionBreaks.AsQueryable();
-        var screenshots = _db.Screenshots.AsQueryable();
+        var appUsage = _db.AppUsageEvents.Where(e => !excludedUserNames.Contains(e.UserName));
+        var idle = _db.IdlePeriods.Where(e => !excludedUserNames.Contains(e.UserName));
+        var urlVisits = _db.UrlVisits.Where(e => !excludedUserNames.Contains(e.UserName));
+        var breaks = _db.SessionBreaks.Where(e => !excludedUserNames.Contains(e.UserName));
+        var screenshots = _db.Screenshots.Where(e => !excludedUserNames.Contains(e.UserName));
 
         if (!string.IsNullOrWhiteSpace(UserName))
         {
@@ -111,10 +112,10 @@ public class ActivityModel : PageModel
 
         // Per-device summary cards: driven by Device + date range only, deliberately not UserName
         // or the event-type checkboxes below - it's a device-level aggregate, a separate concern
-        // from which raw rows the results table shows.
-        var summaryAppUsage = _db.AppUsageEvents.AsQueryable();
-        var summaryIdle = _db.IdlePeriods.AsQueryable();
-        var summaryUrlVisits = _db.UrlVisits.AsQueryable();
+        // from which raw rows the results table shows. Still excludes hidden users, same as everything.
+        var summaryAppUsage = _db.AppUsageEvents.Where(e => !excludedUserNames.Contains(e.UserName));
+        var summaryIdle = _db.IdlePeriods.Where(e => !excludedUserNames.Contains(e.UserName));
+        var summaryUrlVisits = _db.UrlVisits.Where(e => !excludedUserNames.Contains(e.UserName));
 
         if (DeviceId is { } summaryDeviceId)
         {
@@ -152,7 +153,7 @@ public class ActivityModel : PageModel
             .Select(g => new { g.Key.DeviceId, g.Key.ProcessName, Total = g.Sum(e => e.DurationSeconds) })
             .ToListAsync(cancellationToken);
         var topAppsByDevice = appTotals.GroupBy(x => x.DeviceId)
-            .ToDictionary(g => g.Key, g => BuildTopSlices(g.Select(x => (x.ProcessName, x.Total))));
+            .ToDictionary(g => g.Key, g => ActivityAggregation.BuildTopSlices(g.Select(x => (x.ProcessName, x.Total))));
 
         // Host extraction has no SQL translation, so pull narrow (device, url, duration) tuples and
         // group client-side - no heavier than the existing table's own per-row UrlVisit projection.
@@ -160,10 +161,10 @@ public class ActivityModel : PageModel
             .Select(e => new { e.DeviceId, e.Url, e.DurationSeconds })
             .ToListAsync(cancellationToken);
         var topSitesByDevice = urlTuples
-            .GroupBy(x => (x.DeviceId, Host: GetUrlHost(x.Url)))
+            .GroupBy(x => (x.DeviceId, Host: ActivityAggregation.GetUrlHost(x.Url)))
             .Select(g => new { g.Key.DeviceId, g.Key.Host, Total = g.Sum(x => x.DurationSeconds) })
             .GroupBy(x => x.DeviceId)
-            .ToDictionary(g => g.Key, g => BuildTopSlices(g.Select(x => (x.Host, x.Total))));
+            .ToDictionary(g => g.Key, g => ActivityAggregation.BuildTopSlices(g.Select(x => (x.Host, x.Total))));
 
         var devicesToSummarize = DeviceId is { } filterDeviceId
             ? KnownDevices.Where(d => d.DeviceId == filterDeviceId)
@@ -236,35 +237,6 @@ public class ActivityModel : PageModel
 
         Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(200).ToList();
     }
-
-    private static string GetUrlHost(string? url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "(unknown)";
-
-    private static List<CategorySlice> BuildTopSlices(IEnumerable<(string Label, double Seconds)> items, int topN = 5)
-    {
-        var ranked = items.OrderByDescending(x => x.Seconds).ToList();
-        var top = ranked.Take(topN).Select(x => new CategorySlice(x.Label, x.Seconds)).ToList();
-        var otherTotal = ranked.Skip(topN).Sum(x => x.Seconds);
-        if (otherTotal > 0)
-        {
-            top.Add(new CategorySlice("Other", otherTotal));
-        }
-
-        return top;
-    }
-
-    public static string FormatDuration(double seconds)
-    {
-        if (seconds <= 0)
-        {
-            return "0m";
-        }
-
-        var span = TimeSpan.FromSeconds(seconds);
-        var hours = (int)span.TotalHours;
-        var minutes = span.Minutes;
-        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
-    }
 }
 
 public record ActivityRow(
@@ -275,8 +247,6 @@ public record ActivityRow(
     string Details,
     double? DurationSeconds,
     Guid? ScreenshotId);
-
-public record CategorySlice(string Label, double Seconds);
 
 public record DeviceSummary(
     Guid DeviceId,

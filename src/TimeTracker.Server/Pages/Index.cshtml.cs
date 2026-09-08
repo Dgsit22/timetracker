@@ -12,8 +12,10 @@ public class IndexModel : PageModel
         _logger = logger;
     }
 
-    public void OnGet()
+    public IActionResult OnGet()
     {
-
+        // Authenticated users get the real landing page (Dashboard); this scaffold "Welcome"
+        // page only still makes sense for anonymous visitors.
+        return User.Identity?.IsAuthenticated == true ? RedirectToPage("/Dashboard") : Page();
     }
 }

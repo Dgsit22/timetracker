@@ -1,0 +1,180 @@
+@page
+@using System.Text.Json
+@model DashboardModel
+@{
+    ViewData["Title"] = "Dashboard";
+
+    string ChangeBadge(double? percent)
+    {
+        if (percent is null)
+        {
+            return "<span class=\"text-muted small\">no prior data</span>";
+        }
+
+        var rounded = Math.Round(percent.Value);
+        var arrow = rounded >= 0 ? "&#8593;" : "&#8595;";
+        var cls = rounded >= 0 ? "text-success" : "text-danger";
+        return $"<span class=\"{cls} small fw-semibold\">{arrow} {Math.Abs(rounded)}%</span> <span class=\"text-muted small\">vs previous period</span>";
+    }
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="page-heading">Dashboard</h1>
+        <p class="page-subtitle mb-0">Organization-wide activity at a glance.</p>
+    </div>
+</div>
+
+<div class="filter-bar mb-4">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-auto">
+            <label class="col-form-label" for="UserName">User</label>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" id="UserName" name="UserName" onchange="this.form.submit()">
+                <option value="">All users</option>
+                @foreach (var user in Model.KnownUsers)
+                {
+                    <option value="@user" selected="@(user == Model.UserName)">@user</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="DeviceId">Device</label>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
+                <option value="">All devices</option>
+                @foreach (var device in Model.KnownDevices)
+                {
+                    <option value="@device.DeviceId" selected="@(device.DeviceId == Model.DeviceId)">@device.MachineName</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="FromDate">From</label>
+        </div>
+        <div class="col-auto">
+            <input type="date" class="form-control" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="ToDate">To</label>
+        </div>
+        <div class="col-auto">
+            <input type="date" class="form-control" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+        <div class="col-auto btn-group" role="group" aria-label="Quick date range">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(0)">Today</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(6)">Last 7 days</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(29)">Last 30 days</button>
+        </div>
+    </form>
+</div>
+
+<div class="kpi-row mb-4">
+    <div class="kpi-card">
+        <div class="kpi-icon">&#9200;</div>
+        <div>
+            <div class="kpi-label">Total Active Time</div>
+            <div class="kpi-value">@ActivityAggregation.FormatDuration(Model.TotalActiveSeconds)</div>
+            @Html.Raw(ChangeBadge(Model.ActiveChangePercent))
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">&#9749;</div>
+        <div>
+            <div class="kpi-label">Total Idle Time</div>
+            <div class="kpi-value">@ActivityAggregation.FormatDuration(Model.TotalIdleSeconds)</div>
+            @Html.Raw(ChangeBadge(Model.IdleChangePercent))
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">&#128200;</div>
+        <div>
+            <div class="kpi-label">Total Events</div>
+            <div class="kpi-value">@Model.TotalEvents</div>
+            @Html.Raw(ChangeBadge(Model.EventsChangePercent))
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon">&#128421;</div>
+        <div>
+            <div class="kpi-label">Active Devices</div>
+            <div class="kpi-value">@Model.ActiveDeviceCount</div>
+            <span class="text-muted small">out of @Model.TotalDeviceCount devices</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Top 5 Applications</strong></div>
+            <div class="card-body">
+                @if (Model.TopApps.Count == 0)
+                {
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#9633;&#9633;</div>
+                        <div>No application data for the selected period.</div>
+                    </div>
+                }
+                else
+                {
+                    <div style="height:240px">
+                        <canvas id="chart-top-apps"></canvas>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><strong>Top 5 Websites</strong></div>
+            <div class="card-body">
+                @if (Model.TopSites.Count == 0)
+                {
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#9633;&#9633;</div>
+                        <div>No website data for the selected period.</div>
+                    </div>
+                }
+                else
+                {
+                    <div style="height:240px">
+                        <canvas id="chart-top-sites"></canvas>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.js"></script>
+    <script>
+        function setDateRange(daysBack) {
+            const to = new Date();
+            const from = new Date();
+            from.setDate(to.getDate() - daysBack);
+            document.getElementById('FromDate').value = from.toISOString().slice(0, 10);
+            document.getElementById('ToDate').value = to.toISOString().slice(0, 10);
+            document.getElementById('FromDate').form.submit();
+        }
+
+        const topApps = @Html.Raw(JsonSerializer.Serialize(Model.TopApps, ActivityAggregation.ChartJsonOptions));
+        const topSites = @Html.Raw(JsonSerializer.Serialize(Model.TopSites, ActivityAggregation.ChartJsonOptions));
+
+        function renderDonut(canvasId, slices) {
+            const el = document.getElementById(canvasId);
+            if (!el || !slices || slices.length === 0) return;
+            new Chart(el, {
+                type: 'doughnut',
+                data: { labels: slices.map(s => s.label), datasets: [{ data: slices.map(s => s.seconds) }] },
+                options: { maintainAspectRatio: false }
+            });
+        }
+
+        renderDonut('chart-top-apps', topApps);
+        renderDonut('chart-top-sites', topSites);
+    </script>
+}

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -9,58 +9,98 @@
     <link rel="stylesheet" href="~/TimeTracker.Server.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">TimeTracker.Server</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        @if (User.Identity?.IsAuthenticated == true)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-page="/Activity">Activity</a>
-                            </li>
-                            @if (User.IsInRole("Admin"))
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link text-dark" asp-area="" asp-page="/Devices">Devices</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link text-dark" asp-area="" asp-page="/Users">Users</a>
-                                </li>
-                            }
-                        }
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                    <ul class="navbar-nav">
-                        @if (User.Identity?.IsAuthenticated == true)
-                        {
-                            <li class="nav-item d-flex align-items-center me-2">
-                                <span class="text-dark">@User.Identity!.Name</span>
-                            </li>
-                            <li class="nav-item">
+@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+    string NavClass(string page) => "sidebar-nav-link" + (currentPage == page ? " active" : "");
+    string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "?";
+        }
+
+        var parts = name.Split(new[] { '.', '_', '@', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpperInvariant();
+        }
+
+        return (name.Length >= 2 ? name.Substring(0, 2) : name).ToUpperInvariant();
+    }
+}
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <span class="sidebar-brand-icon">&#9201;</span>
+                <div>
+                    <div class="sidebar-brand-name">TimeTracker.Server</div>
+                    <div class="sidebar-brand-tag">Track &middot; Analyze &middot; Work Smarter</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="@NavClass("/Dashboard")" asp-page="/Dashboard">Dashboard</a>
+                <a class="@NavClass("/Activity")" asp-page="/Activity">Activity</a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a class="@NavClass("/Devices")" asp-page="/Devices">Devices</a>
+                    <a class="@NavClass("/Users")" asp-page="/Users">Users</a>
+                    <a class="@NavClass("/Groups")" asp-page="/Groups">Groups</a>
+                    <a class="@NavClass("/Exclusions")" asp-page="/Exclusions">Exclusions</a>
+                }
+                <a class="@NavClass("/Reports")" asp-page="/Reports">Reports</a>
+                <a class="@NavClass("/Privacy")" asp-page="/Privacy">Privacy</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div><span class="status-dot"></span>Server Online</div>
+                <div class="sidebar-version">Version 1.0.0</div>
+            </div>
+        </aside>
+        <div class="app-main">
+            <header class="topbar">
+                <div class="topbar-search">
+                    <input type="search" placeholder="Search users, devices or activities..." disabled />
+                </div>
+                <div class="topbar-right">
+                    <span class="topbar-datetime">
+                        @DateTimeOffset.UtcNow.ToString("ddd, dd MMM yyyy")<br />
+                        @DateTimeOffset.UtcNow.ToString("HH:mm") (UTC)
+                    </span>
+                    <div class="topbar-user dropdown">
+                        <a href="#" class="d-flex align-items-center gap-2 text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+                            <span class="avatar">@Initials(User.Identity!.Name)</span>
+                            <span>
+                                <span class="topbar-user-name d-block">@User.Identity!.Name</span>
+                                <span class="topbar-user-role d-block">@(User.IsInRole("Admin") ? "Administrator" : "Viewer")</span>
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
                                 <form method="post" asp-page="/Account/Logout">
-                                    <button type="submit" class="btn btn-link nav-link text-dark">Log out</button>
+                                    <button type="submit" class="dropdown-item">Log out</button>
                                 </form>
                             </li>
-                        }
-                        else
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-page="/Account/Login">Log in</a>
-                            </li>
-                        }
-                    </ul>
+                        </ul>
+                    </div>
                 </div>
+            </header>
+            <main role="main" class="app-content">
+                @RenderBody()
+            </main>
+            <footer class="app-footer">
+                &copy; 2026 - TimeTracker.Server - <a asp-page="/Privacy">Privacy</a>
+            </footer>
+        </div>
+    </div>
+}
+else
+{
+    <header class="guest-header">
+        <nav class="navbar navbar-expand-sm">
+            <div class="container">
+                <a class="navbar-brand fw-bold" asp-page="/Index" style="color:var(--color-ink)">TimeTracker.Server</a>
+                <a class="btn btn-primary btn-sm" asp-page="/Account/Login">Log in</a>
             </div>
         </nav>
     </header>
@@ -69,12 +109,12 @@
             @RenderBody()
         </main>
     </div>
-
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - TimeTracker.Server - <a asp-area="" asp-page="/Privacy">Privacy</a>
+            &copy; 2026 - TimeTracker.Server - <a asp-page="/Privacy">Privacy</a>
         </div>
     </footer>
+}
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

@@ -1,0 +1,93 @@
+@page
+@model ReportsModel
+@{
+    ViewData["Title"] = "Reports";
+    var exportUrl = Url.Page("/Reports", "Export", new
+    {
+        Model.UserName,
+        Model.GroupId,
+        FromDate = Model.FromDate?.ToString("yyyy-MM-dd"),
+        ToDate = Model.ToDate?.ToString("yyyy-MM-dd"),
+    });
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="page-heading">Reports</h1>
+        <p class="page-subtitle mb-0">Per-user activity summary for the selected period.</p>
+    </div>
+    <a href="@exportUrl" class="btn btn-primary btn-sm">&#8681; Export CSV</a>
+</div>
+
+<div class="filter-bar mb-4">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-auto">
+            <label class="col-form-label" for="UserName">User</label>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" id="UserName" name="UserName" onchange="this.form.submit()">
+                <option value="">All users</option>
+                @foreach (var user in Model.KnownUsers)
+                {
+                    <option value="@user" selected="@(user == Model.UserName)">@user</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="GroupId">Group</label>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" id="GroupId" name="GroupId" onchange="this.form.submit()">
+                <option value="">All groups</option>
+                @foreach (var group in Model.KnownGroups)
+                {
+                    <option value="@group.GroupId" selected="@(group.GroupId == Model.GroupId)">@group.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="FromDate">From</label>
+        </div>
+        <div class="col-auto">
+            <input type="date" class="form-control" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+        <div class="col-auto">
+            <label class="col-form-label" for="ToDate">To</label>
+        </div>
+        <div class="col-auto">
+            <input type="date" class="form-control" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Active time</th>
+                    <th>Idle time</th>
+                    <th>Session breaks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td>@row.UserName</td>
+                        <td>@ActivityAggregation.FormatDuration(row.ActiveSeconds)</td>
+                        <td>@ActivityAggregation.FormatDuration(row.IdleSeconds)</td>
+                        <td>@row.SessionBreakCount</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Rows.Count == 0)
+    {
+        <div class="empty-state">
+            <div>No activity for the selected period.</div>
+        </div>
+    }
+</div>

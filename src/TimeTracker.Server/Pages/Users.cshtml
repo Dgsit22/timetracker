@@ -4,58 +4,78 @@
     ViewData["Title"] = "Users";
 }
 
-<h1>Users</h1>
+<h1 class="page-heading">Users</h1>
+<p class="page-subtitle">Admin console logins - separate from the tracked employees shown on Activity/Reports.</p>
 
-<table class="table table-sm">
-    <thead>
-        <tr>
-            <th>Email</th>
-            <th>Display name</th>
-            <th>Roles</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var (user, roles) in Model.Users)
-        {
-            <tr>
-                <td>@user.Email</td>
-                <td>@user.DisplayName</td>
-                <td>@string.Join(", ", roles)</td>
-                <td>
-                    <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete @user.Email?');" class="d-inline">
-                        <input type="hidden" name="userId" value="@user.Id" />
-                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                    </form>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+<div class="card mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Display name</th>
+                    <th>Roles</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (user, roles) in Model.Users)
+                {
+                    <tr>
+                        <td>@user.Email</td>
+                        <td>@user.DisplayName</td>
+                        <td>
+                            @foreach (var role in roles)
+                            {
+                                <span class="badge-soft me-1">@role</span>
+                            }
+                        </td>
+                        <td>
+                            <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete @user.Email?');" class="d-inline">
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Users.Count == 0)
+    {
+        <div class="empty-state">
+            <div>No users yet.</div>
+        </div>
+    }
+</div>
 
-<h2>Add user</h2>
-<div asp-validation-summary="ModelOnly" class="text-danger"></div>
-<form method="post" asp-page-handler="Create" class="row g-2 align-items-end" style="max-width:640px">
-    <div class="col-auto">
-        <label class="form-label" asp-for="Input.Email"></label>
-        <input asp-for="Input.Email" class="form-control" />
+<div class="card">
+    <div class="card-header"><strong>Add user</strong></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <form method="post" asp-page-handler="Create" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label" asp-for="Input.Email"></label>
+                <input asp-for="Input.Email" class="form-control" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" asp-for="Input.DisplayName"></label>
+                <input asp-for="Input.DisplayName" class="form-control" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" asp-for="Input.Password"></label>
+                <input asp-for="Input.Password" class="form-control" type="password" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" asp-for="Input.Role"></label>
+                <select asp-for="Input.Role" class="form-select">
+                    <option value="Viewer">Viewer</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </form>
     </div>
-    <div class="col-auto">
-        <label class="form-label" asp-for="Input.DisplayName"></label>
-        <input asp-for="Input.DisplayName" class="form-control" />
-    </div>
-    <div class="col-auto">
-        <label class="form-label" asp-for="Input.Password"></label>
-        <input asp-for="Input.Password" class="form-control" type="password" />
-    </div>
-    <div class="col-auto">
-        <label class="form-label" asp-for="Input.Role"></label>
-        <select asp-for="Input.Role" class="form-select">
-            <option value="Viewer">Viewer</option>
-            <option value="Admin">Admin</option>
-        </select>
-    </div>
-    <div class="col-auto">
-        <button type="submit" class="btn btn-primary">Add</button>
-    </div>
-</form>
+</div>

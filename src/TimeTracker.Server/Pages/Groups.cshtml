@@ -1,0 +1,81 @@
+@page
+@model GroupsModel
+@{
+    ViewData["Title"] = "Groups";
+}
+
+<h1 class="page-heading">Groups</h1>
+<p class="page-subtitle">Bucket tracked employees together, e.g. by department - useful for setting up Exclusions for a whole team at once.</p>
+
+<div class="card mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Members</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var group in Model.Groups)
+                {
+                    <tr>
+                        <td>@group.Name</td>
+                        <td>
+                            @if (group.Members.Count == 0)
+                            {
+                                <span class="text-muted">No members</span>
+                            }
+                            else
+                            {
+                                foreach (var member in group.Members)
+                                {
+                                    <span class="badge-soft me-1">@member</span>
+                                }
+                            }
+                        </td>
+                        <td>
+                            <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete group @group.Name? Any exclusion rule targeting it will also be removed.');" class="d-inline">
+                                <input type="hidden" name="groupId" value="@group.GroupId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Groups.Count == 0)
+    {
+        <div class="empty-state">
+            <div>No groups yet.</div>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-header"><strong>Create group</strong></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <form method="post" asp-page-handler="Create" class="row g-2">
+            <div class="col-auto">
+                <label class="form-label" asp-for="Input.Name"></label>
+                <input asp-for="Input.Name" class="form-control" placeholder="e.g. Sales team" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Members</label>
+                <select asp-for="Input.Members" class="form-select" multiple size="6" style="min-width:260px">
+                    @foreach (var user in Model.KnownUsers)
+                    {
+                        <option value="@user">@user</option>
+                    }
+                </select>
+                <div class="form-text">Ctrl/Cmd-click to select multiple.</div>
+            </div>
+            <div class="col-auto align-self-end">
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>

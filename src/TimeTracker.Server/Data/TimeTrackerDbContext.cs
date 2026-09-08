@@ -15,6 +15,9 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<SessionBreakEvent> SessionBreaks => Set<SessionBreakEvent>();
     public DbSet<ScreenshotEvent> Screenshots => Set<ScreenshotEvent>();
     public DbSet<Device> Devices => Set<Device>();
+    public DbSet<Group> Groups => Set<Group>();
+    public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
+    public DbSet<ExclusionRule> ExclusionRules => Set<ExclusionRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,5 +29,8 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<SessionBreakEvent>().HasKey(e => e.EventId);
         modelBuilder.Entity<ScreenshotEvent>().HasKey(e => e.EventId);
         modelBuilder.Entity<Device>().HasKey(e => e.DeviceId);
+        modelBuilder.Entity<Group>().HasKey(e => e.GroupId);
+        modelBuilder.Entity<GroupMember>().HasKey(e => new { e.GroupId, e.UserName });
+        modelBuilder.Entity<ExclusionRule>().HasKey(e => e.ExclusionRuleId);
     }
 }

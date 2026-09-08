@@ -86,3 +86,34 @@ public class Device
     public bool CaptureSessionBreaks { get; set; } = true;
     public bool CaptureScreenshots { get; set; } = true;
 }
+
+/// <summary>
+/// A named bucket of tracked usernames (the raw Windows username the Agent reports -
+/// see UserName on the event types above) - unrelated to ApplicationUser/Identity,
+/// which is who logs into this admin console, not who's being monitored.
+/// </summary>
+public class Group
+{
+    public Guid GroupId { get; set; }
+    public string Name { get; set; } = default!;
+}
+
+/// <summary>Composite-keyed membership row: one tracked username in one Group.</summary>
+public class GroupMember
+{
+    public Guid GroupId { get; set; }
+    public string UserName { get; set; } = default!;
+}
+
+/// <summary>
+/// Hides a tracked username's activity from Activity/Dashboard/Reports - display-only,
+/// the Agent still captures and stores everything as normal. Targets exactly one of
+/// UserName (a specific tracked user) or GroupId (every member of that group).
+/// </summary>
+public class ExclusionRule
+{
+    public Guid ExclusionRuleId { get; set; }
+    public string? UserName { get; set; }
+    public Guid? GroupId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+}

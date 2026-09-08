@@ -1,0 +1,97 @@
+@page
+@model ExclusionsModel
+@{
+    ViewData["Title"] = "Exclusions";
+}
+
+<h1 class="page-heading">Exclusions</h1>
+<p class="page-subtitle">Hide a tracked user's (or a whole group's) activity from Activity, Dashboard and Reports. Data is still captured and stored - this only affects what's shown here.</p>
+
+<div class="card mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Target</th>
+                    <th>Type</th>
+                    <th>Created (UTC)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rule in Model.Rules)
+                {
+                    <tr>
+                        <td>@rule.TargetLabel</td>
+                        <td><span class="badge-soft">@rule.TargetType</span></td>
+                        <td>@rule.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            <form method="post" asp-page-handler="Delete" class="d-inline">
+                                <input type="hidden" name="exclusionRuleId" value="@rule.ExclusionRuleId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Rules.Count == 0)
+    {
+        <div class="empty-state">
+            <div>No exclusions - everyone's activity is currently visible.</div>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-header"><strong>Add exclusion</strong></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <form method="post" asp-page-handler="Create" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="Input.TargetType" id="targetUser" value="User" checked onchange="toggleTarget()" />
+                    <label class="form-check-label" for="targetUser">User</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="Input.TargetType" id="targetGroup" value="Group" onchange="toggleTarget()" />
+                    <label class="form-check-label" for="targetGroup">Group</label>
+                </div>
+            </div>
+            <div class="col-auto" id="userTargetField">
+                <label class="form-label">User</label>
+                <select asp-for="Input.UserName" class="form-select">
+                    <option value="">Select a user&hellip;</option>
+                    @foreach (var user in Model.KnownUsers)
+                    {
+                        <option value="@user">@user</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto d-none" id="groupTargetField">
+                <label class="form-label">Group</label>
+                <select asp-for="Input.GroupId" class="form-select">
+                    <option value="">Select a group&hellip;</option>
+                    @foreach (var group in Model.KnownGroups)
+                    {
+                        <option value="@group.GroupId">@group.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleTarget() {
+            const isUser = document.getElementById('targetUser').checked;
+            document.getElementById('userTargetField').classList.toggle('d-none', !isUser);
+            document.getElementById('groupTargetField').classList.toggle('d-none', isUser);
+        }
+    </script>
+}
