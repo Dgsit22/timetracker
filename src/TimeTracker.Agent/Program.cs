@@ -15,6 +15,19 @@ if (ConnectionTest.TryHandleCommandLine(args))
     return;
 }
 
+// Guards only the long-running tracking mode below, not the CLI modes above: a stray
+// double-click of the exe (it has no window, so it's easy to not notice one's already
+// running) would otherwise spawn a second set of trackers writing to the same local
+// SQLite outbox concurrently. Deliberately session-scoped ("Local\", the default for an
+// unprefixed name under Terminal Services), not machine-wide ("Global\"): this app is
+// designed to run one instance *per logged-in user*, so two different users
+// legitimately each get their own instance under RDP/fast user switching.
+using var singleInstanceMutex = new Mutex(initiallyOwned: true, name: @"Local\TimeTrackerAgent-SingleInstance", createdNew: out var isFirstInstance);
+if (!isFirstInstance)
+{
+    return;
+}
+
 var builder = Host.CreateApplicationBuilder(args);
 
 // Runs per-user from the Startup folder, not as a LocalSystem service: a Windows
