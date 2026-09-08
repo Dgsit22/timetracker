@@ -113,7 +113,7 @@
         <table class="table table-sm table-hover mb-0">
             <thead>
                 <tr>
-                    <th>Time (UTC)</th>
+                    <th>Time (<span class="tz-label">UTC</span>)</th>
                     <th>User</th>
                     <th>Device</th>
                     <th>Type</th>
@@ -126,7 +126,7 @@
                 @foreach (var row in Model.Rows)
                 {
                     <tr>
-                        <td>@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td data-utc="@row.TimestampUtc.ToString("o")" data-utc-format="datetime-s">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>@row.UserName</td>
                         <td title="@row.DeviceId">@row.DeviceId.ToString()[..8]</td>
                         <td><span class="badge-soft">@row.Kind</span></td>

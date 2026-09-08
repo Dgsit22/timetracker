@@ -19,8 +19,8 @@
         <tr>
             <th>Machine</th>
             <th>Last user</th>
-            <th>First seen (UTC)</th>
-            <th>Last seen (UTC)</th>
+            <th>First seen (<span class="tz-label">UTC</span>)</th>
+            <th>Last seen (<span class="tz-label">UTC</span>)</th>
             <th>Idle today</th>
             <th>App usage</th>
             <th>URL visits</th>
@@ -37,8 +37,8 @@
             <tr>
                 <td title="@device.DeviceId">@device.MachineName</td>
                 <td>@device.LastUserName</td>
-                <td>@device.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                <td>@device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td data-utc="@device.FirstSeenUtc.ToString("o")" data-utc-format="datetime">@device.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td data-utc="@device.LastSeenUtc.ToString("o")" data-utc-format="datetime">@device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
                 <td>@DevicesModel.FormatIdle(Model.IdleTodayByDevice.GetValueOrDefault(device.DeviceId))</td>
                 <td>
                     <input form="@formId" type="hidden" name="deviceId" value="@device.DeviceId" />

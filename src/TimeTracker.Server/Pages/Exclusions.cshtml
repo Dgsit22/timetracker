@@ -14,7 +14,7 @@
                 <tr>
                     <th>Target</th>
                     <th>Type</th>
-                    <th>Created (UTC)</th>
+                    <th>Created (<span class="tz-label">UTC</span>)</th>
                     <th></th>
                 </tr>
             </thead>
@@ -24,7 +24,7 @@
                     <tr>
                         <td>@rule.TargetLabel</td>
                         <td><span class="badge-soft">@rule.TargetType</span></td>
-                        <td>@rule.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td data-utc="@rule.CreatedAtUtc.ToString("o")" data-utc-format="datetime">@rule.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             <form method="post" asp-page-handler="Delete" class="d-inline">
                                 <input type="hidden" name="exclusionRuleId" value="@rule.ExclusionRuleId" />

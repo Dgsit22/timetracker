@@ -63,10 +63,16 @@
                     <input type="search" placeholder="Search users, devices or activities..." disabled />
                 </div>
                 <div class="topbar-right">
+                    @{ var nowIso = DateTimeOffset.UtcNow.ToString("o"); }
                     <span class="topbar-datetime">
-                        @DateTimeOffset.UtcNow.ToString("ddd, dd MMM yyyy")<br />
-                        @DateTimeOffset.UtcNow.ToString("HH:mm") (UTC)
+                        <span data-utc="@nowIso" data-utc-format="date"></span><br />
+                        <span data-utc="@nowIso" data-utc-format="time"></span> <span class="tz-label">UTC</span>
                     </span>
+                    <select id="tzSelector" class="form-select form-select-sm" style="width:auto" title="Display timezone">
+                        <option value="UTC">UTC</option>
+                        <option value="IST">IST</option>
+                        <option value="EST">EST</option>
+                    </select>
                     <div class="topbar-user dropdown">
                         <a href="#" class="d-flex align-items-center gap-2 text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
                             <span class="avatar">@Initials(User.Identity!.Name)</span>
