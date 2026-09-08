@@ -161,25 +161,52 @@
       WriteAgentConfig itself is deferred (it runs elevated, after files are staged), and
       deferred custom actions can't see the property table directly - [SERVERURL] and
       [AGENTAPIKEY] would resolve to blank there, silently dropping whatever the wizard
-      collected. So an immediate CA first stashes both values, pipe-joined, into a property
-      named identically to the deferred CA ("WriteAgentConfig") - the installer engine
-      copies that into the reserved CustomActionData property right before the deferred CA
-      runs, which is the only channel a deferred CA has for authored data.
+      collected. The documented fix for that is to stash the data in a same-named property
+      so the engine copies it into the deferred action's reserved CustomActionData - but
+      for an *EXE*-type deferred action that data doesn't actually reach the launched
+      process's command line or environment (verified empirically against a compiled
+      build: both `[CustomActionData]` substitution and the `%CustomActionData%`
+      env var came through blank, even though the property itself was set correctly).
+      So instead: StageAgentConfig (immediate, with direct property access) writes the
+      pipe-joined value to a fixed temp path, and WriteAgentConfig (deferred, elevated)
+      reads it back from there and deletes it - see InstallTimeConfig.cs for the full
+      writeup of why CustomActionData doesn't work here.
+
+      StageAgentConfig targets cmd.exe rather than "[#AgentExe]", even though it's
+      staging data *for* the Agent exe: "After InstallFiles" only orders it after
+      InstallFiles in the sequence table, but InstallFiles is itself deferred, so at the
+      point this immediate action actually runs, InstallFiles has only been *scheduled*
+      into the execution script, not actually run yet - the exe isn't on disk. cmd.exe
+      always is (verified: targeting "[#AgentExe]" here fails instantly with Error 1721,
+      "program required for this install to complete could not be run"). The `^` before
+      the pipe escapes it from cmd's own parser, which would otherwise treat an
+      unescaped `|` as a real pipe rather than a literal character to write out.
+
+      Same reasoning rules out Directory="INSTALLFOLDER" as this CA's working directory:
+      CreateFolders (which makes it) is deferred too, so INSTALLFOLDER doesn't exist yet
+      either at this point (confirmed: with Directory="INSTALLFOLDER", even the cmd.exe
+      version above still failed with the same instant Error 1721 - CreateProcess fails
+      outright if the working directory doesn't exist, regardless of whether the target
+      program itself is found). SystemFolder (C:\Windows\System32) is populated by the
+      standard AppSearch/CostInitialize actions early in the sequence and always exists.
     -->
-    <CustomAction Id="SetWriteAgentConfigData"
-                  Property="WriteAgentConfig"
-                  Value="[SERVERURL]|[AGENTAPIKEY]" />
+    <CustomAction Id="StageAgentConfig"
+                  Directory="SystemFolder"
+                  ExeCommand='cmd.exe /c &quot;echo [SERVERURL]^|[AGENTAPIKEY]&gt;C:\Windows\Temp\timetracker-agent-stage.tmp&quot;'
+                  Execute="immediate"
+                  Return="check" />
 
     <CustomAction Id="WriteAgentConfig"
                   Directory="INSTALLFOLDER"
-                  ExeCommand='&quot;[#AgentExe]&quot; --write-config &quot;[CustomActionData]&quot;'
+                  ExeCommand='&quot;[#AgentExe]&quot; --write-staged-config'
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />
 
     <InstallExecuteSequence>
-      <Custom Action="SetWriteAgentConfigData" Before="WriteAgentConfig" Condition="NOT Installed" />
-      <Custom Action="WriteAgentConfig" After="InstallFiles" Condition="NOT Installed" />
+      <!-- Both reference [#AgentExe], so both must run after the exe is actually on disk. -->
+      <Custom Action="StageAgentConfig" After="InstallFiles" Condition="NOT Installed" />
+      <Custom Action="WriteAgentConfig" After="StageAgentConfig" Condition="NOT Installed" />
     </InstallExecuteSequence>
 
   </Package>
