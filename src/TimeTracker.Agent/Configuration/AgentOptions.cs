@@ -10,6 +10,8 @@ public class AgentOptions
 
     public int IdleThresholdSeconds { get; set; } = 300;
 
+    public int IdleFlushIntervalSeconds { get; set; } = 60;
+
     public int ScreenshotIntervalSeconds { get; set; } = 600;
 
     public string ServerBaseUrl { get; set; } = "http://localhost:5081";

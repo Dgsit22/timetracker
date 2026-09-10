@@ -9,7 +9,10 @@ namespace TimeTracker.Agent.Tracking;
 
 /// <summary>
 /// Polls system-wide last-input time and emits an IdlePeriodEventDto for each
-/// span the user was idle beyond the configured threshold.
+/// span the user was idle beyond the configured threshold. A still-ongoing idle
+/// span is also flushed in IdleFlushIntervalSeconds chunks so the dashboard's idle
+/// total advances while the user is still away, instead of jumping only once
+/// activity resumes (which, for a long idle stretch, could be hours later).
 /// </summary>
 public class IdleTracker : BackgroundService
 {
@@ -64,25 +67,40 @@ public class IdleTracker : BackgroundService
             return;
         }
 
+        if (isIdle && _idleStartedAtUtc is { } segmentStartedAtUtc)
+        {
+            if ((now - segmentStartedAtUtc).TotalSeconds >= _options.IdleFlushIntervalSeconds)
+            {
+                await EmitIdlePeriodAsync(segmentStartedAtUtc, now, cancellationToken);
+                _idleStartedAtUtc = now;
+            }
+
+            return;
+        }
+
         if (!isIdle && _idleStartedAtUtc is { } startedAtUtc)
         {
             _idleStartedAtUtc = null;
-
-            if (!_policyCache.Current.CaptureIdle)
-            {
-                return;
-            }
-
-            var duration = (now - startedAtUtc).TotalSeconds;
-            await _store.AddIdlePeriodAsync(
-                new IdlePeriodEventDto(
-                    Guid.NewGuid(),
-                    _deviceIdentity.DeviceId,
-                    startedAtUtc,
-                    now,
-                    duration,
-                    _options.IdleThresholdSeconds),
-                cancellationToken);
+            await EmitIdlePeriodAsync(startedAtUtc, now, cancellationToken);
         }
+    }
+
+    private async Task EmitIdlePeriodAsync(DateTimeOffset startedAtUtc, DateTimeOffset endedAtUtc, CancellationToken cancellationToken)
+    {
+        if (!_policyCache.Current.CaptureIdle)
+        {
+            return;
+        }
+
+        var duration = (endedAtUtc - startedAtUtc).TotalSeconds;
+        await _store.AddIdlePeriodAsync(
+            new IdlePeriodEventDto(
+                Guid.NewGuid(),
+                _deviceIdentity.DeviceId,
+                startedAtUtc,
+                endedAtUtc,
+                duration,
+                _options.IdleThresholdSeconds),
+            cancellationToken);
     }
 }
