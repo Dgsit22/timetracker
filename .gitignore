@@ -13,3 +13,8 @@ installer/*.log
 installer/bin/
 installer/obj/
 publish/
+
+# TLS material for the server (server.pfx holds the private key) - never commit.
+certs/
+*.pfx
+*.key

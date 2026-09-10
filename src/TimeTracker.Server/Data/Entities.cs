@@ -80,6 +80,15 @@ public class Device
     public DateTimeOffset FirstSeenUtc { get; set; }
     public DateTimeOffset LastSeenUtc { get; set; }
 
+    /// <summary>
+    /// Per-device secret, claimed by the Agent the first time it syncs and required on every sync
+    /// after that. Without it, DeviceId is just a number in the request body, so anyone holding the
+    /// org-wide agent key could submit or fabricate activity attributed to someone else's machine.
+    /// Null means "not yet claimed": devices enrolled before this existed keep working untouched,
+    /// and the first sync that presents a token claims the slot permanently.
+    /// </summary>
+    public string? AgentToken { get; set; }
+
     public bool CaptureAppUsage { get; set; } = true;
     public bool CaptureUrlVisits { get; set; } = true;
     public bool CaptureIdle { get; set; } = true;

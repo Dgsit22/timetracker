@@ -23,15 +23,24 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "5081:8080"
+      - "5443:8443"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      # HTTPS only - no plaintext listener at all. Agents send the shared API key on every sync and
+      # admins send a session cookie, so an HTTP port existing "just for convenience" is enough to
+      # leak both to anyone on the LAN.
+      ASPNETCORE_URLS: "https://+:8443"
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /certs/server.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${CERT_PASSWORD:?set CERT_PASSWORD in .env}
       ConnectionStrings__TimeTracker: "Host=postgres;Port=5432;Database=timetracker;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}"
       Admin__Email: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       Agent__ApiKey: ${AGENT_API_KEY:?set AGENT_API_KEY in .env}
     volumes:
       - dataprotection-keys:/app/keys
+      # The container runs as non-root (UID 1654), so server.pfx on the host must be readable by
+      # others - e.g. chmod 644 - or Kestrel fails to start with a file-access error.
+      - ./certs:/certs:ro
 
 volumes:
   postgres-data:

@@ -28,6 +28,15 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
+
+    // Always, not the SameAsRequest default: this cookie is the entire admin session, and the
+    // default would happily send it over a plaintext connection if the app were ever reached over
+    // one. HttpOnly keeps it out of reach of script (defence in depth alongside the screenshot
+    // content-type fix). Lax rather than Strict because the login flow redirects back into the
+    // site, which Strict would break.
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
 builder.Services.AddAuthorization(options =>

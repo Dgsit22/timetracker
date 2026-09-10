@@ -67,7 +67,7 @@ public class SyncClient : BackgroundService
             return;
         }
 
-        var request = new SyncBatchRequest(
+        var batchRequest = new SyncBatchRequest(
             _deviceIdentity.DeviceId,
             AgentVersion,
             Environment.UserName,
@@ -81,7 +81,7 @@ public class SyncClient : BackgroundService
 
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"), "batch" },
+            { new StringContent(JsonSerializer.Serialize(batchRequest), Encoding.UTF8, "application/json"), "batch" },
         };
 
         foreach (var screenshot in batch.Screenshots)
@@ -97,7 +97,13 @@ public class SyncClient : BackgroundService
         }
 
         var client = _httpClientFactory.CreateClient("TimeTrackerServer");
-        using var response = await client.PostAsync("/api/ingest/sync", content, cancellationToken);
+
+        // Per-request rather than on the named client's default headers, because the token is
+        // device state resolved at runtime, not deployment config like the shared agent key.
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/ingest/sync") { Content = content };
+        httpRequest.Headers.Add("X-Device-Token", _deviceIdentity.AgentToken);
+
+        using var response = await client.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

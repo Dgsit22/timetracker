@@ -1,0 +1,32 @@
+# LOCAL FIRST-RUN ONLY — NOT FOR DEPLOYMENT.
+#
+# Serves the app over plain HTTP so the stack can be brought up and verified without also having
+# to get a certificate right on the first attempt. Everything is on one machine at that point, so
+# there is no network traffic for anyone to intercept.
+#
+# The moment an Agent on *another* PC points at this server, plain HTTP means its API key and every
+# admin session cookie cross the LAN in clear text. Switch back to the HTTPS default before that.
+#
+# Deliberately NOT named docker-compose.override.yml: Compose picks that filename up automatically,
+# so a later production `docker compose up` on this repo would silently serve plaintext. This one
+# only applies when you ask for it by name:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local-http.yml up -d --build
+#
+# Production (the default, HTTPS on 5443) stays:
+#
+#   docker compose up -d --build
+#
+# NOTE: .env still needs a CERT_PASSWORD line even in HTTP mode. Compose interpolates the base
+# file's ${CERT_PASSWORD:?} before this override is merged, so an absent value fails the whole
+# command. Any placeholder will do while HTTP is in use - it is not read by anything here.
+
+services:
+  server:
+    ports:
+      - "5081:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      # Blanked so Kestrel doesn't look for a certificate that hasn't been created yet.
+      ASPNETCORE_Kestrel__Certificates__Default__Path: ""
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ""
