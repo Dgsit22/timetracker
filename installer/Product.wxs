@@ -219,6 +219,31 @@
                   Return="check" />
 
     <!--
+      %ProgramData%\TimeTracker holds the local SQLite outbox, the device id and the screenshot
+      spool, and every user's Agent instance on this machine writes to that one shared directory.
+      Files created under ProgramData inherit BUILTIN\Users:(RX) - read-only - so whichever
+      identity happens to create agent.db first effectively locks out everyone else: their Agent
+      starts, captures perfectly well, then fails every insert with SQLite error 8, "attempt to
+      write a readonly database". It logs a warning per event and otherwise looks completely
+      healthy, which makes it painful to spot - the machine simply goes quiet.
+      Hit in the field after a SYSTEM-context install: agent.db ended up owned by SYSTEM, and the
+      logged-in user's Agent could not write a single event. The same applies to any second user
+      on a shared or RDP machine, regardless of how it was installed.
+      Granting Users Modify on the directory tree is what makes the per-user model actually work.
+      Uses the well-known SID rather than the name "Users", which is localised on non-English
+      Windows. mkdir first because the directory is normally created by the Agent on first run,
+      which may not have happened yet. Deferred/no-impersonate because changing ACLs needs the
+      elevated context, and Return="ignore" so a locked-down machine that refuses the ACL change
+      doesn't fail the whole install.
+    -->
+    <CustomAction Id="GrantDataDirAccess"
+                  Directory="SystemFolder"
+                  ExeCommand='cmd.exe /c mkdir &quot;[CommonAppDataFolder]TimeTracker&quot; 2&gt;nul &amp; icacls &quot;[CommonAppDataFolder]TimeTracker&quot; /grant *S-1-5-32-545:(OI)(CI)M /T'
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <!--
       Paths here (and in the two actions below) are built from [INSTALLFOLDER] rather than the
       more obvious [#AgentExe] File-key token, which turns out to resolve to an empty string on
       a forced-reinstall run (REINSTALL=ALL REINSTALLMODE=amus): [#FileKey] only expands once
@@ -328,6 +353,9 @@
       -->
       <Custom Action="StageAgentConfig" After="InstallFiles" Condition="NOT Installed AND NOT REINSTALL" />
       <Custom Action="WriteAgentConfig" After="StageAgentConfig" Condition="NOT Installed AND NOT REINSTALL" />
+      <!-- Unconditional (except uninstall): an existing install can already have a data directory
+           whose ACLs lock out other users, so a repair/upgrade must be able to correct it too. -->
+      <Custom Action="GrantDataDirAccess" After="WriteAgentConfig" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="LaunchAgentAfterInstall" After="InstallFinalize" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="CreateWatchdogTask" After="LaunchAgentAfterInstall" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="RemoveWatchdogTask" After="InstallInitialize" Condition="REMOVE~=&quot;ALL&quot; AND NOT REINSTALL AND NOT UPGRADINGPRODUCTCODE" />
