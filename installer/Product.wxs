@@ -102,6 +102,7 @@
       <ComponentRef Id="AgentExeComponent" />
       <ComponentRef Id="StartupShortcutComponent" />
       <ComponentRef Id="TroubleshooterShortcutComponent" />
+      <ComponentRef Id="SettingsShortcutComponent" />
     </Feature>
 
     <!-- Everything except the exe, which gets its own component below (KeyPath for the write-config custom action). -->
@@ -153,6 +154,27 @@
     </Component>
 
     <!--
+      The Agent runs windowless, so its Settings live on the tray icon's right-click menu - which
+      is effectively invisible if the icon is hidden behind the taskbar's overflow chevron (it
+      routinely is). This Start Menu entry gives it a findable home alongside Test Connection,
+      opening the same window via the exe's "settings" command-line mode.
+    -->
+    <Component Id="SettingsShortcutComponent" Directory="AppProgramMenuFolder" Guid="b41d9e7c-5a2f-4c8e-9d3b-6f0a1c2e4d59">
+      <Shortcut Id="SettingsShortcut"
+                Name="TimeTracker Agent Settings"
+                Description="Set the TimeTracker server URL and Agent API key this machine reports to."
+                Target="[#AgentExe]"
+                Arguments="--settings"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKLM"
+                      Key="Software\DigiClarity\TimeTracker Agent"
+                      Name="SettingsShortcutInstalled"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes" />
+    </Component>
+
+    <!--
       Config is delivered via a file the Agent writes to itself (agent-settings.json under
       ProgramData), not machine environment variables: those aren't visible to processes
       started before the next logon/reboot, so a freshly-installed Startup app wouldn't see
@@ -196,17 +218,119 @@
                   Execute="immediate"
                   Return="check" />
 
+    <!--
+      Paths here (and in the two actions below) are built from [INSTALLFOLDER] rather than the
+      more obvious [#AgentExe] File-key token, which turns out to resolve to an empty string on
+      a forced-reinstall run (REINSTALL=ALL REINSTALLMODE=amus): [#FileKey] only expands once
+      that file's component has an *install* action state, and a reinstall computes component
+      states differently. The failure mode is nasty - the program half of the ExeCommand silently
+      collapses to an empty `""`, so CreateProcess has no program to launch and the install dies
+      with a generic "a program required for this install to complete could not be run" (1721),
+      pointing at nothing in particular. A plain /i install resolves it fine, so this only bites
+      on repair/forced-reinstall - exactly the path used to push an updated build to a machine.
+      [INSTALLFOLDER] is a directory property resolved at CostFinalize and always populated, and
+      it already carries its trailing backslash.
+    -->
     <CustomAction Id="WriteAgentConfig"
                   Directory="INSTALLFOLDER"
-                  ExeCommand='&quot;[#AgentExe]&quot; --write-staged-config'
+                  ExeCommand='&quot;[INSTALLFOLDER]TimeTracker.Agent.exe&quot; --write-staged-config'
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />
 
+    <!--
+      Without this, a repair/upgrade install leaves the Agent stopped until the next logon:
+      Windows' Restart Manager silently closes the running TimeTracker.Agent.exe mid-install
+      so the MSI can overwrite the locked exe, and nothing brings it back - the Startup-folder
+      shortcut only fires at logon, which may not happen again for the rest of that session.
+      Scheduled "immediate" (not deferred) so it runs inside the installer's own process, which
+      stays in the interactive user's session even when UAC-elevated - unlike a deferred action,
+      which always executes in the separate, Session-0-bound msiexec service process and could
+      never attach a tray icon or see the desktop.
+      Return="asyncNoWait", not "ignore" - found the hard way, by actually running a genuine
+      fresh install (every earlier test happened to have an old instance already running, so
+      the launch immediately lost the single-instance mutex race and exited in milliseconds,
+      masking this): "ignore" still launches the exe *synchronously* and just ignores its exit
+      code, but the Agent is a long-running background service that never exits on its own - so
+      on a real fresh install (nothing previously running to lose the mutex race), the installer
+      sat there waiting forever for a process that was never going to return, wedging InstallFinalize
+      indefinitely with no error, just an OS "not responding" dialog. asyncNoWait launches it and
+      moves on immediately, which is all this was ever meant to do.
+      A silent/unattended install (e.g. pushed via RMM under a service account with no interactive
+      session) has nothing to attach to; the exe still autostarts at the next real logon via the
+      Startup shortcut either way, so this remains a best-effort convenience, not load-bearing.
+      Guarded against uninstall so it doesn't try to relaunch an exe InstallFinalize just deleted.
+    -->
+    <CustomAction Id="LaunchAgentAfterInstall"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='&quot;[INSTALLFOLDER]TimeTracker.Agent.exe&quot;'
+                  Execute="immediate"
+                  Return="asyncNoWait" />
+
+    <!--
+      Covers what LaunchAgentAfterInstall can't: a crash, a kill from Task Manager/AV, or a
+      reboot where nobody happens to log back in right at logon (auto-login races, a machine
+      left at the lock screen for a while, etc). Task Scheduler - not a Windows Service, for the
+      same Session-0-has-no-desktop reason as everything else here - polls every 5 minutes and
+      relaunches the exe if it isn't running. Safe to fire even when it's already running: the
+      Agent's own single-instance mutex (see Program.cs) makes the redundant launch an instant
+      no-op, so there's no risk of doubled-up trackers.
+      /RU Users /IT (not a specific username): runs in whichever interactive user's session is
+      actually logged on at each 5-minute tick, matching the Startup shortcut's existing
+      per-user model, rather than hardcoding the one account that happened to run the installer -
+      untested against an actual second concurrent user on this machine, so verify that path
+      before relying on it for a genuinely multi-user box.
+      /TR needs the doubled-quote form (/TR "\"C:\...\TimeTracker.Agent.exe\""), confirmed against
+      this machine's actual schtasks.exe by inspecting the created task's raw XML (`schtasks /Query
+      /XML`) - the friendly `/V /FO LIST` display recombines Command+Arguments either way, so it
+      doesn't actually prove the quoting worked. An earlier single-quoted version (/TR "...") looked
+      fine in that display but the raw XML showed schtasks had silently split it at the first space
+      - <Command>C:\Program</Command><Arguments>Files\...\TimeTracker.Agent.exe</Arguments> - which
+      then failed at run time with ERROR_FILE_NOT_FOUND (0x80070002). The doubled-quote form's raw
+      XML confirmed a single, correctly-quoted <Command> with no stray <Arguments>.
+      Return="ignore" and /F (overwrite) for the same best-effort, idempotent-on-repair reasoning
+      as LaunchAgentAfterInstall above.
+    -->
+    <CustomAction Id="CreateWatchdogTask"
+                  Directory="SystemFolder"
+                  ExeCommand='schtasks.exe /Create /TN &quot;TimeTracker Agent Watchdog&quot; /TR &quot;\&quot;[INSTALLFOLDER]TimeTracker.Agent.exe\&quot;&quot; /SC MINUTE /MO 5 /RU Users /IT /RL LIMITED /F'
+                  Execute="immediate"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveWatchdogTask"
+                  Directory="SystemFolder"
+                  ExeCommand='schtasks.exe /Delete /TN &quot;TimeTracker Agent Watchdog&quot; /F'
+                  Execute="immediate"
+                  Return="ignore" />
+
+    <!--
+      Conditions below deliberately test REINSTALL/UPGRADINGPRODUCTCODE alongside REMOVE, rather
+      than the obvious-looking REMOVE~="ALL" on its own. A forced reinstall
+      (REINSTALL=ALL REINSTALLMODE=amus - how an updated build gets pushed onto a machine that
+      already has one) sets REMOVE="ALL" *too*, because MSI models a reinstall as removing every
+      feature and re-adding it. With the naive conditions that inverted this whole block: the
+      watchdog task got deleted, and both the launch and the re-create were skipped, while the
+      install still cheerfully reported "completed successfully" - verified in an /l*v log, which
+      showed "Adding REMOVE property. Its value is 'ALL'" followed by "Skipping action:
+      LaunchAgentAfterInstall (condition is false)".
+      A genuine uninstall is the case where REMOVE="ALL" *and* REINSTALL is empty; the extra
+      UPGRADINGPRODUCTCODE test keeps the old version's removal half of a major upgrade from
+      tearing down the task the new version just registered.
+    -->
     <InstallExecuteSequence>
-      <!-- Both reference [#AgentExe], so both must run after the exe is actually on disk. -->
-      <Custom Action="StageAgentConfig" After="InstallFiles" Condition="NOT Installed" />
-      <Custom Action="WriteAgentConfig" After="StageAgentConfig" Condition="NOT Installed" />
+      <!-- Both run the installed exe, so both must run after it's actually on disk. -->
+      <!--
+        "NOT Installed" alone is not enough to mean "first install": a forced reinstall clears
+        Installed too, so these fired on a reinstall and rewrote agent-settings.json from the
+        property defaults - resetting ServerBaseUrl to the localhost placeholder and dropping the
+        configured AgentApiKey entirely (observed: a working config reduced to just the default
+        URL). The wizard never runs on a reinstall, so there are no real values to write there.
+      -->
+      <Custom Action="StageAgentConfig" After="InstallFiles" Condition="NOT Installed AND NOT REINSTALL" />
+      <Custom Action="WriteAgentConfig" After="StageAgentConfig" Condition="NOT Installed AND NOT REINSTALL" />
+      <Custom Action="LaunchAgentAfterInstall" After="InstallFinalize" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
+      <Custom Action="CreateWatchdogTask" After="LaunchAgentAfterInstall" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
+      <Custom Action="RemoveWatchdogTask" After="InstallInitialize" Condition="REMOVE~=&quot;ALL&quot; AND NOT REINSTALL AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
   </Package>

@@ -1,0 +1,204 @@
+<Window x:Class="TimeTracker.Agent.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TimeTracker Agent - Settings"
+        Width="440" SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="#FDF6F2"
+        FontFamily="Segoe UI">
+
+    <!--
+      Colors lifted straight from the Server's design tokens (src/TimeTracker.Server/wwwroot/css/site.css
+      :root block) so this window reads as the same product as the web Dashboard, not a bolted-on
+      afterthought. Kept as literal hex here rather than any shared source, since a WPF app and a
+      Razor site have no realistic way to share a token file - if the palette changes there, it needs
+      a matching edit here too.
+    -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgBrush" Color="#FDF6F2" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="BorderBrush2" Color="#EBDCD3" />
+        <SolidColorBrush x:Key="InkBrush" Color="#013237" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#6B7A78" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FEAE96" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#FE979C" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#C0392B" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#1F7A5C" />
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <!--
+          Full ControlTemplates, not just Setters: the stock .NET 8 Fluent theme's built-in
+          TextBox/PasswordBox templates hard-code their own focus-state border color (Windows'
+          system blue) via internal VisualStateManager states, which a Style-level BorderBrush
+          Setter/Trigger can't reach or override - confirmed by actually rendering this window
+          and screenshotting it, where the API-key field showed blue instead of the intended
+          accent-2 coral. Owning the template outright is the only way to get the Dashboard's
+          .form-control:focus treatment (accent-2 border) instead of the OS default.
+        -->
+        <Style x:Key="FieldBox" TargetType="Control">
+            <Setter Property="Padding" Value="8,7" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style TargetType="TextBox" BasedOn="{StaticResource FieldBox}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="PasswordBox" BasedOn="{StaticResource FieldBox}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Matches the Dashboard's .btn-primary: accent-1 fill, ink text, accent-2 on hover. -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BorderBrush2}" />
+                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Matches .btn-outline-danger's shape/weight but in ink, for a secondary action. -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{StaticResource InkBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1" CornerRadius="10" Margin="16">
+        <StackPanel Margin="24,22,24,20">
+
+            <TextBlock Text="Server connection" FontSize="16" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+            <TextBlock Text="The TimeTracker server this Agent sends activity reports to."
+                       FontSize="12.5" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,18" TextWrapping="Wrap" />
+
+            <TextBlock Text="Server URL" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="ServerUrlBox" Margin="0,0,0,14" />
+
+            <TextBlock Text="Agent API key" Style="{StaticResource FieldLabel}" />
+            <Grid Margin="0,0,0,4">
+                <PasswordBox x:Name="ApiKeyPasswordBox" />
+                <TextBox x:Name="ApiKeyTextBox" Visibility="Collapsed" />
+            </Grid>
+            <CheckBox x:Name="ShowKeyCheckBox" Content="Show key" Foreground="{StaticResource MutedBrush}"
+                      FontSize="12" Margin="0,6,0,4" Checked="OnShowKeyChanged" Unchecked="OnShowKeyChanged" />
+
+            <TextBlock x:Name="StatusText" Margin="0,14,0,0" FontSize="12.5" TextWrapping="Wrap" Visibility="Collapsed" />
+
+            <TextBlock Text="Changes take effect after the Agent restarts - either now via the button below, or automatically within a few minutes via its background watchdog."
+                       FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,16,0,0" />
+
+            <Grid Margin="0,18,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="Cancel" Style="{StaticResource LinkButton}"
+                        HorizontalAlignment="Left" Click="OnCancel" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="TestButton" Content="Test Connection" Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,8,0" Click="OnTestConnection" />
+                    <Button x:Name="SaveButton" Content="Save" Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,8,0" Click="OnSave" />
+                    <Button x:Name="SaveAndRestartButton" Content="Save &amp; Restart Now" Style="{StaticResource PrimaryButton}"
+                            Click="OnSaveAndRestart" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

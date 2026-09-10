@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Settings window (SettingsWindow.xaml) is WPF; the tray icon it hangs off of stays
+         WinForms (NotifyIcon has no WPF equivalent). Both can share the same STA thread -
+         see TrayIcon.cs for how the window gets shown. -->
+    <UseWPF>true</UseWPF>
     <!-- Runs from the Startup folder at logon; WinExe avoids flashing a console window. -->
     <OutputType>WinExe</OutputType>
     <!-- Shows in Explorer/Task Manager/the tray icon (see TrayIcon.cs) so the Agent is

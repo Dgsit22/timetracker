@@ -27,7 +27,7 @@ public static class ConnectionTest
             ? ParsePipeJoined(args[1])
             : ReadFromInstalledConfig();
 
-        RunAsync(serverUrl, apiKey).GetAwaiter().GetResult();
+        RunCoreAsync(serverUrl, apiKey).GetAwaiter().GetResult();
         return true;
     }
 
@@ -36,11 +36,15 @@ public static class ConnectionTest
     public static Task RunFromInstalledConfigAsync()
     {
         var (serverUrl, apiKey) = ReadFromInstalledConfig();
-        return RunAsync(serverUrl, apiKey);
+        return RunCoreAsync(serverUrl, apiKey);
     }
 
     // For the tray icon's "Open Server" menu item.
     public static string GetConfiguredServerUrl() => ReadFromInstalledConfig().ServerUrl;
+
+    // For the Settings window's "Test Connection" button: runs the same check against
+    // whatever is currently typed into the form, before it's been saved.
+    public static Task RunAsync(string serverUrl, string apiKey) => RunCoreAsync(serverUrl, apiKey);
 
     private static (string ServerUrl, string ApiKey) ParsePipeJoined(string arg)
     {
@@ -48,7 +52,7 @@ public static class ConnectionTest
         return (parts.Length > 0 ? parts[0] : "", parts.Length > 1 ? parts[1] : "");
     }
 
-    private static (string ServerUrl, string ApiKey) ReadFromInstalledConfig()
+    internal static (string ServerUrl, string ApiKey) ReadFromInstalledConfig()
     {
         const string defaultUrl = "http://localhost:5081";
         var path = InstallTimeConfig.GetPath();
@@ -75,7 +79,7 @@ public static class ConnectionTest
         }
     }
 
-    private static async Task RunAsync(string serverUrl, string apiKey)
+    private static async Task RunCoreAsync(string serverUrl, string apiKey)
     {
         const string title = "TimeTracker Agent - Connection Test";
 

@@ -16,6 +16,21 @@ if (ConnectionTest.TryHandleCommandLine(args))
     return;
 }
 
+// `--settings` opens just the Settings window and exits, for the Start Menu shortcut. The Agent
+// has no main window (it's a background tracker), so without this the only way in is the tray
+// icon's right-click menu - easy to miss entirely when the icon is tucked behind the taskbar's
+// overflow chevron. Deliberately ahead of the single-instance guard below: this is a short-lived
+// UI-only invocation, and it has to work while the real tracking instance is running and holding
+// the mutex. Own STA thread for the same reason the tray icon gets one - see the note further down.
+if (args.Length > 0 && args[0] == "--settings")
+{
+    var settingsThread = new Thread(() => new System.Windows.Application().Run(new SettingsWindow()));
+    settingsThread.SetApartmentState(ApartmentState.STA);
+    settingsThread.Start();
+    settingsThread.Join();
+    return;
+}
+
 // Guards only the long-running tracking mode below, not the CLI modes above: a stray
 // double-click of the exe (it has no window, so it's easy to not notice one's already
 // running) would otherwise spawn a second set of trackers writing to the same local

@@ -21,6 +21,7 @@ public sealed class AgentTrayIcon : IDisposable
         _serverUrl = serverUrl;
 
         var menu = new ContextMenuStrip();
+        menu.Items.Add("Settings...", null, OnSettings);
         menu.Items.Add("Test Connection", null, OnTestConnection);
         menu.Items.Add("Open Server", null, OnOpenServer);
         menu.Items.Add(new ToolStripSeparator());
@@ -35,6 +36,20 @@ public sealed class AgentTrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
+    }
+
+    // WPF needs an Application instance for resource/dispatcher lookups to work (e.g. the
+    // DynamicResource bindings in SettingsWindow.xaml), even though nothing here calls its
+    // Run() - this thread's own message loop (Application.Run() below, the WinForms one)
+    // already pumps messages for both; a WPF Window's ShowDialog() nests its own dispatcher
+    // loop inside that the same way any modal Win32 dialog would. Created lazily, once, on
+    // first use rather than eagerly at startup, since most sessions never open Settings.
+    private System.Windows.Application? _wpfApplication;
+
+    private void OnSettings(object? sender, EventArgs e)
+    {
+        _wpfApplication ??= new System.Windows.Application();
+        new SettingsWindow().ShowDialog();
     }
 
     private void OnTestConnection(object? sender, EventArgs e)

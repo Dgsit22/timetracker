@@ -73,21 +73,61 @@ public static class InstallTimeConfig
         var parts = pipeJoined.Split('|', 2);
         var serverUrl = parts.Length > 0 ? parts[0].Trim() : "";
         var apiKey = parts.Length > 1 ? parts[1].Trim() : "";
+        Write(serverUrl, apiKey);
+    }
 
+    private static (string ServerUrl, string ApiKey) ReadExisting(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return ("", "");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (!doc.RootElement.TryGetProperty("Agent", out var agent) || agent.ValueKind != JsonValueKind.Object)
+            {
+                return ("", "");
+            }
+
+            return (
+                agent.TryGetProperty("ServerBaseUrl", out var u) ? u.GetString() ?? "" : "",
+                agent.TryGetProperty("AgentApiKey", out var k) ? k.GetString() ?? "" : "");
+        }
+        catch (Exception)
+        {
+            // Unreadable/corrupt: treat as "nothing to preserve" rather than blocking the write.
+            return ("", "");
+        }
+    }
+
+    // For the Settings window's Save button - same write path the installer uses
+    // (--write-config), just called directly instead of round-tripping through argv.
+    public static void Write(string serverUrl, string apiKey)
+    {
         var path = GetPath();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        // Omit blank values rather than writing them, so an unset field falls back to
-        // appsettings.json instead of overriding it with an empty string.
+        // A blank incoming value means "not supplied", never "clear it": an install path that
+        // runs without the wizard (a reinstall, a silent push that omits AGENTAPIKEY) otherwise
+        // silently destroys a working config - the API key in particular is unrecoverable from
+        // this machine once gone. So blanks fall back to whatever is already on disk, and only a
+        // real, non-blank value overwrites. Keys still absent after that are omitted entirely
+        // rather than written empty, so they fall back to appsettings.json.
+        var (existingUrl, existingKey) = ReadExisting(path);
+        var effectiveUrl = string.IsNullOrWhiteSpace(serverUrl) ? existingUrl : serverUrl;
+        var effectiveKey = string.IsNullOrWhiteSpace(apiKey) ? existingKey : apiKey;
+
         var agent = new Dictionary<string, string>();
-        if (!string.IsNullOrWhiteSpace(serverUrl))
+        if (!string.IsNullOrWhiteSpace(effectiveUrl))
         {
-            agent["ServerBaseUrl"] = serverUrl;
+            agent["ServerBaseUrl"] = effectiveUrl;
         }
 
-        if (!string.IsNullOrWhiteSpace(apiKey))
+        if (!string.IsNullOrWhiteSpace(effectiveKey))
         {
-            agent["AgentApiKey"] = apiKey;
+            agent["AgentApiKey"] = effectiveKey;
         }
 
         var json = JsonSerializer.Serialize(new { Agent = agent }, new JsonSerializerOptions { WriteIndented = true });

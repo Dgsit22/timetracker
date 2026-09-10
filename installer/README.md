@@ -9,6 +9,15 @@ and screen capture all silently return nothing there. Running from Startup
 gives every user who logs into the machine their own Agent instance with
 normal desktop access.
 
+The install also registers a **"TimeTracker Agent Watchdog"** scheduled task
+that checks every 5 minutes and relaunches the exe if it isn't running. This
+covers what the Startup shortcut alone can't: a crash, a kill from Task
+Manager/AV, or an install/repair that stops the running exe (Windows'
+Restart Manager does this automatically to release the locked file) with no
+one logging back in afterward to re-trigger Startup. It's safe to fire even
+when the Agent is already running — the Agent's own single-instance mutex
+makes the redundant launch an instant no-op. Uninstalling removes the task.
+
 ## Prerequisites (on the build machine)
 
 ```
@@ -36,10 +45,12 @@ resolves to the wrong (`Program Files (x86)`) location.
 ## Install (per machine)
 
 ```
-msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=http://your-server:5081 AGENTAPIKEY=your-agent-api-key
+msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=https://192.168.0.15:5443 AGENTAPIKEY=your-agent-api-key
 ```
 
-- `SERVERURL` defaults to `http://localhost:5081` if omitted.
+- `SERVERURL` must be the **https** URL on port `5443`, and must match the address in the server's
+  certificate — see "TLS" below. It defaults to `http://localhost:5081` (a local-development
+  convenience) if omitted, which will not reach a production server.
 - `AGENTAPIKEY` must match the server's `Agent:ApiKey` (Docker: the `AGENT_API_KEY`
   in `.env`) — every device shares the same key; there's no per-device secret yet.
 - These are written to `%ProgramData%\TimeTracker\agent-settings.json` by the
@@ -50,6 +61,111 @@ msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=http://your-server:5081 AGE
 
 For a push deployment (GPO, SCCM, Intune), run the same `msiexec` command
 per target machine with your real `SERVERURL`/`AGENTAPIKEY`.
+
+## TLS (required — the server has no plaintext port)
+
+The server listens on **HTTPS only** (`5443`). Agents send the shared API key on every sync and
+admins send a session cookie, so a plaintext listener would expose both to anyone on the LAN.
+
+**This is entirely internal.** HTTPS here does not mean exposing anything to the internet: no
+public DNS, no inbound ports, no third-party CA. The certificate is issued by you, for a machine
+only your LAN can reach. Its job is to stop someone on the same network reading the admin session
+cookie and agent API key off the wire.
+
+A public CA (Let's Encrypt) **cannot** be used, precisely because the server is private — they will
+not validate an internal address. So issue the certificate yourself, one of three ways.
+
+### Best, if the machines are domain-joined: AD Certificate Services
+
+Issue a server certificate for the TimeTracker host from your enterprise CA. Domain members trust
+the enterprise root automatically, so there is **no client-side work at all** — no GPO import, no
+per-machine step. If you have AD CS, use it.
+
+### No DNS at all — self-signed with an IP SAN
+
+Use this to keep addressing the server by bare IP (`https://192.168.0.15:5443`).
+
+The address must be in the certificate's **IP** SAN field. `-DnsName` will not do it: that writes a
+*DNS* SAN, and .NET rejects a DNS SAN when connecting to a literal IP — the connection fails
+validation even though the address visibly appears in the certificate. Use `-TextExtension` instead
+(verified to produce `IP Address=192.168.0.15`):
+
+```powershell
+# On the server. Replace the IP with the server's LAN address.
+$cert = New-SelfSignedCertificate `
+  -Subject "CN=TimeTracker Server" `
+  -TextExtension @("2.5.29.17={text}IPAddress=192.168.0.15&DNS=timetracker") `
+  -CertStoreLocation "Cert:\LocalMachine\My" `
+  -NotAfter (Get-Date).AddYears(3) `
+  -KeyExportPolicy Exportable
+```
+
+If the server's IP ever changes, the certificate must be reissued — that is the tradeoff for
+skipping DNS. A hosts entry (below) avoids it.
+
+### With a name instead — self-signed with a DNS SAN
+
+A hostname needs no DNS *server*: a `hosts` entry on each endpoint
+(`192.168.0.15  timetracker`, pushable by GPO) is enough, and survives the server changing IP.
+Swap the `-TextExtension` line above for `-DnsName "timetracker"`.
+
+### Then, for either self-signed route
+
+```powershell
+$pw = ConvertTo-SecureString -String "<CERT_PASSWORD from .env>" -Force -AsPlainText
+New-Item -ItemType Directory -Force .\certs | Out-Null
+Export-PfxCertificate -Cert $cert -FilePath .\certs\server.pfx -Password $pw
+
+# Public half only - this is what endpoints must trust. Contains no private key.
+Export-Certificate -Cert $cert -FilePath .\timetracker-root.cer
+```
+
+Then set `CERT_PASSWORD` in `.env`, and make sure `certs/server.pfx` is readable by the container's
+non-root user (`chmod 644 certs/server.pfx` — it is password-protected).
+
+**Distribute `timetracker-root.cer` to every monitored machine**, into
+`Local Computer\Trusted Root Certification Authorities`. Via GPO:
+*Computer Configuration → Policies → Windows Settings → Security Settings → Public Key Policies →
+Trusted Root Certification Authorities → Import*. Without this, every agent's sync fails TLS
+validation and the Test Connection shortcut reports a certificate error.
+
+`certs/` and `*.pfx` are gitignored — never commit the private key.
+
+### Pointing agents at HTTPS
+
+`SERVERURL` must use `https`, port `5443`, and **exactly** the address in the certificate — the IP
+if you used an IP SAN, the hostname if you used a DNS SAN. Mixing them (certificate issued for the
+hostname, agents pointed at the IP) fails validation:
+
+```
+msiexec /i TimeTracker.Agent-Setup.msi /qn SERVERURL=https://192.168.0.15:5443 AGENTAPIKEY=...
+```
+
+Already-deployed agents can be repointed from the Start Menu's **TimeTracker Agent Settings**
+entry (requires administrator approval) without reinstalling.
+
+## Updating a machine that already has the Agent
+
+Use the **same plain `/i`** command — do **not** add `REINSTALL=ALL REINSTALLMODE=amus`.
+
+Every `wix build` generates a new ProductCode, so a freshly built MSI is a *different*
+product that shares this one's UpgradeCode. Plain `/i` is therefore the correct and
+intended path: `MajorUpgrade` installs the new product and `RemoveExistingProducts`
+retires the old one.
+
+`REINSTALL=ALL` means "reinstall the already-installed features **of this product**" —
+and since the newly built ProductCode has never been installed, there is nothing to
+reinstall. MSI then registers the product, runs the custom actions, and reports
+**"Installation completed successfully" while copying zero files**, leaving the old
+binaries in place. It's a genuinely silent failure; the only tell is `Action: Null` on
+every component in an `/l*v` log. It also sets `REMOVE=ALL` (a reinstall is modelled as
+removing and re-adding every feature), which flips the install/uninstall conditions in
+`Product.wxs` the wrong way round.
+
+To confirm an update actually landed, check `TimeTracker.Agent.dll` — **not** the `.exe`.
+In a self-contained publish the `.exe` is just the native apphost stub and is
+byte-identical across builds, so its hash/timestamp will match even when nothing was
+updated. The managed code lives in the DLL.
 
 ## Troubleshooting
 
