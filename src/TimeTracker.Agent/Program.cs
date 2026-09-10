@@ -31,6 +31,37 @@ if (args.Length > 0 && args[0] == "--settings")
     return;
 }
 
+// Tracking in session 0 produces confidently wrong data, so refuse to start there at all.
+// A per-machine install run by SYSTEM (an RMM push, or msiexec from a SYSTEM shell) launches
+// this exe from session 0, which has no interactive desktop. Nothing errors - it is worse than
+// that. GetForegroundWindow finds no window, so app usage is silently empty; GetLastInputInfo
+// reports a session that by definition never receives input, so the machine looks permanently
+// idle and the outbox fills with fabricated idle periods; and SessionSwitch never fires, because
+// session 0 is never locked or unlocked. Observed in the field as a device reporting 0m active,
+// 37m of idle nobody actually took, and no lock/unlock events at all.
+// Exiting leaves startup to the two paths that do land in a real user session: the all-users
+// Startup shortcut at logon, and the watchdog task (/RU Users /IT). Deliberately after the CLI
+// modes above - "--write-config" in particular *is* invoked as SYSTEM by the installer and must
+// keep working.
+if (System.Diagnostics.Process.GetCurrentProcess().SessionId == 0)
+{
+    try
+    {
+        System.Diagnostics.EventLog.WriteEntry(
+            InstallTimeConfig.EventSourceName,
+            "Not starting: session 0 has no interactive desktop, so tracking there would record "
+            + "empty app usage and fabricated idle time. The Startup shortcut or the watchdog task "
+            + "will start the Agent inside the user's session instead.",
+            System.Diagnostics.EventLogEntryType.Warning);
+    }
+    catch (Exception)
+    {
+        // Event source may not exist yet on a first install; the exit matters, the log doesn't.
+    }
+
+    return;
+}
+
 // Guards only the long-running tracking mode below, not the CLI modes above: a stray
 // double-click of the exe (it has no window, so it's easy to not notice one's already
 // running) would otherwise spawn a second set of trackers writing to the same local
