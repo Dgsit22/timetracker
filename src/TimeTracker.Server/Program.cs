@@ -34,7 +34,16 @@ builder.Services.ConfigureApplicationCookie(options =>
     // one. HttpOnly keeps it out of reach of script (defence in depth alongside the screenshot
     // content-type fix). Lax rather than Strict because the login flow redirects back into the
     // site, which Strict would break.
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    //
+    // The escape hatch exists because Always makes login impossible over HTTP - the browser
+    // discards the cookie, so the POST succeeds, the redirect happens, and the user lands back on
+    // the login page forever with no error to explain it. Only docker-compose.local-http.yml sets
+    // this, and it defaults to false, so a deployment that doesn't deliberately opt out stays
+    // secure.
+    var allowInsecureCookies = builder.Configuration.GetValue("Security:AllowInsecureCookies", false);
+    options.Cookie.SecurePolicy = allowInsecureCookies
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });

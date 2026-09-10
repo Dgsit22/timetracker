@@ -30,3 +30,8 @@ services:
       # Blanked so Kestrel doesn't look for a certificate that hasn't been created yet.
       ASPNETCORE_Kestrel__Certificates__Default__Path: ""
       ASPNETCORE_Kestrel__Certificates__Default__Password: ""
+      # The auth cookie is normally marked Secure, which a browser refuses to store over plain
+      # HTTP - login then fails in the most confusing way possible: the POST succeeds, the
+      # redirect fires, and you arrive back at the login page with no error at all. Relaxing it
+      # is what makes HTTP mode usable, and is exactly why this file must never reach production.
+      Security__AllowInsecureCookies: "true"
