@@ -106,6 +106,81 @@
     </div>
 </div>
 
+@{
+    string StateBadge(string state) => state switch
+    {
+        "Reporting" => "<span class=\"badge-soft\" style=\"background:#DFF3EA;color:#1F7A5C\">Reporting</span>",
+        "Late" => "<span class=\"badge-soft\" style=\"background:#FCE8DF;color:#8A4B2A\">Late</span>",
+        _ => "<span class=\"badge-soft\" style=\"background:#F8DAD6;color:#C0392B\">Silent</span>",
+    };
+
+    string Ago(TimeSpan t) =>
+        t.TotalSeconds < 60 ? $"{(int)t.TotalSeconds}s ago"
+        : t.TotalMinutes < 60 ? $"{(int)t.TotalMinutes}m ago"
+        : t.TotalHours < 24 ? $"{(int)t.TotalHours}h {t.Minutes}m ago"
+        : $"{(int)t.TotalDays}d ago";
+}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Agent status</strong>
+        <span class="text-muted small">Live &mdash; not affected by the date filter above. Counts cover the last hour.</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Machine</th>
+                    <th>Last user</th>
+                    <th>Status</th>
+                    <th>Last reported</th>
+                    <th>Events (1h)</th>
+                    <th>App</th>
+                    <th>Idle</th>
+                    <th>Not capturing</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var agent in Model.AgentStatuses)
+                {
+                    <tr>
+                        <td>
+                            @if (agent.IsPinned)
+                            {
+                                <span class="text-danger" title="Pinned">&#128204;</span>
+                            }
+                            @agent.MachineName
+                        </td>
+                        <td>@agent.LastUserName</td>
+                        <td>@Html.Raw(StateBadge(agent.State))</td>
+                        <td title="@agent.LastSeenUtc.ToString("u")">@Ago(agent.SilentFor)</td>
+                        <td>@agent.EventsLastHour</td>
+                        <td>@agent.AppEventsLastHour</td>
+                        <td>@agent.IdleEventsLastHour</td>
+                        <td>
+                            @if (string.IsNullOrEmpty(agent.DisabledCaptures))
+                            {
+                                <span class="text-muted">&mdash;</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger small">@agent.DisabledCaptures</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.AgentStatuses.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-state-icon">&#128225;</div>
+            <div>No agents have registered yet.</div>
+        </div>
+    }
+</div>
+
 <div class="row g-3">
     <div class="col-md-6">
         <div class="card h-100">

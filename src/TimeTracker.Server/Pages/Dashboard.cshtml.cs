@@ -56,6 +56,8 @@ public class DashboardModel : PageModel
 
     public List<CategorySlice> TopSites { get; private set; } = new();
 
+    public List<AgentStatus> AgentStatuses { get; private set; } = new();
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         // First load (no date filter at all yet): default to today, matching the reference
@@ -94,6 +96,8 @@ public class DashboardModel : PageModel
         TopApps = ActivityAggregation.BuildTopSlices(current.AppTotals);
         TopSites = ActivityAggregation.BuildTopSlices(current.SiteTotals);
 
+        AgentStatuses = await LoadAgentStatusesAsync(cancellationToken);
+
         // "vs previous period": same span length, immediately preceding the current range -
         // only meaningful when both bounds are actually set (a real, bounded period).
         if (fromUtc is { } from && toUtcExclusive is { } to)
@@ -104,6 +108,86 @@ public class DashboardModel : PageModel
             IdleChangePercent = PercentChange(previous.IdleSeconds, current.IdleSeconds);
             EventsChangePercent = PercentChange(previous.EventCount, current.EventCount);
         }
+    }
+
+    /// <summary>
+    /// Deliberately ignores the page's date filter: this answers "is each agent reporting right
+    /// now", which is a question about the present, not about whichever period is being reviewed.
+    /// Silence is the failure mode that matters here - an agent that stops syncing looks identical
+    /// to a quiet machine on every other view, so the last-seen age is surfaced explicitly rather
+    /// than left to be inferred from missing rows.
+    /// </summary>
+    private async Task<List<AgentStatus>> LoadAgentStatusesAsync(CancellationToken cancellationToken)
+    {
+        var devices = await _db.Devices.ToListAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var since = now.AddHours(-1);
+
+        // One grouped query per type rather than per device, so this stays flat as the fleet grows.
+        var appCounts = await CountByDeviceAsync(_db.AppUsageEvents.Where(e => e.StartedAtUtc >= since), cancellationToken);
+        var idleCounts = await CountByDeviceAsync(_db.IdlePeriods.Where(e => e.StartedAtUtc >= since), cancellationToken);
+        var urlCounts = await CountByDeviceAsync(_db.UrlVisits.Where(e => e.StartedAtUtc >= since), cancellationToken);
+        var breakCounts = await _db.SessionBreaks.Where(e => e.BreakStartUtc >= since)
+            .GroupBy(e => e.DeviceId).Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+        var shotCounts = await _db.Screenshots.Where(e => e.CapturedAtUtc >= since)
+            .GroupBy(e => e.DeviceId).Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+
+        return devices
+            .Select(d =>
+            {
+                var silentFor = now - d.LastSeenUtc;
+
+                // Agents sync every 30s by default, so a couple of minutes of silence is normal
+                // jitter, five means several missed attempts, and anything beyond that is a
+                // machine that is off, disconnected, or failing to authenticate.
+                var state = silentFor <= TimeSpan.FromMinutes(2) ? "Reporting"
+                    : silentFor <= TimeSpan.FromMinutes(15) ? "Late"
+                    : "Silent";
+
+                return new AgentStatus(
+                    d.DeviceId,
+                    d.MachineName,
+                    d.LastUserName,
+                    d.LastSeenUtc,
+                    silentFor,
+                    state,
+                    appCounts.GetValueOrDefault(d.DeviceId)
+                        + idleCounts.GetValueOrDefault(d.DeviceId)
+                        + urlCounts.GetValueOrDefault(d.DeviceId)
+                        + breakCounts.GetValueOrDefault(d.DeviceId)
+                        + shotCounts.GetValueOrDefault(d.DeviceId),
+                    appCounts.GetValueOrDefault(d.DeviceId),
+                    idleCounts.GetValueOrDefault(d.DeviceId),
+                    DisabledCaptures(d),
+                    d.IsPinned);
+            })
+            .OrderByDescending(a => a.IsPinned)
+            .ThenBy(a => a.State == "Reporting" ? 1 : 0) // problems first
+            .ThenBy(a => a.MachineName)
+            .ToList();
+    }
+
+    private static Task<Dictionary<Guid, int>> CountByDeviceAsync<T>(IQueryable<T> query, CancellationToken cancellationToken)
+        where T : class =>
+        query.GroupBy(e => EF.Property<Guid>(e, "DeviceId"))
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+
+    /// <summary>
+    /// Surfaced because a switched-off capture type looks exactly like a broken agent from the
+    /// outside - the events simply never arrive, and nothing on the dashboard says why.
+    /// </summary>
+    private static string DisabledCaptures(Device d)
+    {
+        var off = new List<string>();
+        if (!d.CaptureAppUsage) off.Add("apps");
+        if (!d.CaptureUrlVisits) off.Add("urls");
+        if (!d.CaptureIdle) off.Add("idle");
+        if (!d.CaptureSessionBreaks) off.Add("breaks");
+        if (!d.CaptureScreenshots) off.Add("screenshots");
+        return off.Count == 0 ? "" : string.Join(", ", off);
     }
 
     private static double? PercentChange(double previous, double current)
@@ -200,6 +284,19 @@ public class DashboardModel : PageModel
             appTotals.Select(x => (x.Key, x.Total)).ToList(),
             siteTotals);
     }
+
+    public record AgentStatus(
+        Guid DeviceId,
+        string MachineName,
+        string LastUserName,
+        DateTimeOffset LastSeenUtc,
+        TimeSpan SilentFor,
+        string State,
+        int EventsLastHour,
+        int AppEventsLastHour,
+        int IdleEventsLastHour,
+        string DisabledCaptures,
+        bool IsPinned);
 
     private record PeriodTotals(
         double ActiveSeconds,
