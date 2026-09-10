@@ -7,9 +7,19 @@
 <h1 class="page-heading">Devices</h1>
 <p class="page-subtitle">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them per-machine as needed.</p>
 
+@* Forms live outside the table: a <form> cannot be nested inside <tr>/<td> and still post
+   reliably, so each row's controls reference one of these by id via the form="" attribute. *@
 @foreach (var device in Model.Devices)
 {
     <form id="device-@device.DeviceId" method="post">@Html.AntiForgeryToken()</form>
+    <form id="pin-@device.DeviceId" method="post" asp-page-handler="TogglePin">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="deviceId" value="@device.DeviceId" />
+    </form>
+    <form id="delete-@device.DeviceId" method="post" asp-page-handler="Delete">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="deviceId" value="@device.DeviceId" />
+    </form>
 }
 
 <div class="card">
@@ -35,7 +45,13 @@
         {
             var formId = $"device-{device.DeviceId}";
             <tr>
-                <td title="@device.DeviceId">@device.MachineName</td>
+                <td title="@device.DeviceId">
+                    @if (device.IsPinned)
+                    {
+                        <span class="text-danger" title="Pinned to the top">&#128204;</span>
+                    }
+                    @device.MachineName
+                </td>
                 <td>@device.LastUserName</td>
                 <td data-utc="@device.FirstSeenUtc.ToString("o")" data-utc-format="datetime">@device.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
                 <td data-utc="@device.LastSeenUtc.ToString("o")" data-utc-format="datetime">@device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -81,8 +97,16 @@
                     </div>
                     <input form="@formId" type="hidden" name="captureScreenshots" value="false" />
                 </td>
-                <td>
+                <td class="text-nowrap">
                     <button form="@formId" type="submit" class="btn btn-sm btn-primary">Save</button>
+                    <button form="pin-@device.DeviceId" type="submit" class="btn btn-sm btn-link p-0 ms-2 align-baseline"
+                            title="@(device.IsPinned ? "Unpin from the top" : "Pin to the top")">
+                        @(device.IsPinned ? "Unpin" : "Pin")
+                    </button>
+                    <button form="delete-@device.DeviceId" type="submit" class="btn btn-sm btn-link p-0 ms-2 align-baseline text-danger"
+                            onclick="return confirm('Delete @device.MachineName and permanently erase all of its recorded activity, screenshots and idle time?\n\nThis cannot be undone.');">
+                        Delete
+                    </button>
                 </td>
             </tr>
         }

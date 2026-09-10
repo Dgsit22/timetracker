@@ -75,7 +75,13 @@
         @foreach (var summary in Model.DeviceSummaries)
         {
             <div class="card mb-3">
-                <div class="card-header"><strong>@summary.MachineName</strong></div>
+                <div class="card-header">
+                    @if (summary.IsPinned)
+                    {
+                        <span class="text-danger" title="Pinned">&#128204;</span>
+                    }
+                    <strong>@summary.MachineName</strong>
+                </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-auto">

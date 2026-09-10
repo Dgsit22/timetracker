@@ -89,6 +89,13 @@ public class Device
     /// </summary>
     public string? AgentToken { get; set; }
 
+    /// <summary>
+    /// Sorts this device to the top of the Devices and Activity lists. Purely a display
+    /// preference for admins watching a handful of machines out of a long list - it does not
+    /// change what is captured.
+    /// </summary>
+    public bool IsPinned { get; set; }
+
     public bool CaptureAppUsage { get; set; } = true;
     public bool CaptureUrlVisits { get; set; } = true;
     public bool CaptureIdle { get; set; } = true;

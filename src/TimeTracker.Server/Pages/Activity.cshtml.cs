@@ -49,6 +49,16 @@ public class ActivityModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        // Default to today on a bare page load, matching Dashboard. Without it this page opened on
+        // all history, so the per-device cards showed lifetime totals (60+ hours of "active time")
+        // where an admin reasonably reads them as today's. The quick filters still reach older data.
+        if (FromDate is null && ToDate is null)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            FromDate = today;
+            ToDate = today;
+        }
+
         var excludedUserNames = await ActivityAggregation.GetExcludedUserNamesAsync(_db, cancellationToken);
 
         KnownUsers = (await _db.AppUsageEvents.Select(e => e.UserName)
@@ -176,8 +186,12 @@ public class ActivityModel : PageModel
                 activeTotals.GetValueOrDefault(d.DeviceId),
                 idleTotals.GetValueOrDefault(d.DeviceId),
                 topAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
-                topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>()))
-            .OrderByDescending(s => s.ActiveSeconds)
+                topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
+                d.IsPinned))
+            // Pinned first, so a machine being watched closely stays at the top even on a quiet
+            // day when its active time would otherwise sink below everything else.
+            .OrderByDescending(s => s.IsPinned)
+            .ThenByDescending(s => s.ActiveSeconds)
             .ToList();
 
         var includedTypes = TypesFilterApplied
@@ -254,4 +268,5 @@ public record DeviceSummary(
     double ActiveSeconds,
     double IdleSeconds,
     List<CategorySlice> TopApps,
-    List<CategorySlice> TopSites);
+    List<CategorySlice> TopSites,
+    bool IsPinned);

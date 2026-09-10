@@ -22,7 +22,10 @@ public class DevicesModel : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Devices = await _db.Devices.OrderBy(d => d.MachineName).ToListAsync(cancellationToken);
+        Devices = await _db.Devices
+            .OrderByDescending(d => d.IsPinned)
+            .ThenBy(d => d.MachineName)
+            .ToListAsync(cancellationToken);
 
         // "Today" is a UTC calendar day, consistent with FirstSeenUtc/LastSeenUtc already shown
         // raw-UTC on this page - not converted to any admin's local time.
@@ -67,6 +70,37 @@ public class DevicesModel : PageModel
             device.CaptureScreenshots = captureScreenshots;
             await _db.SaveChangesAsync(cancellationToken);
         }
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostTogglePinAsync(Guid deviceId, CancellationToken cancellationToken)
+    {
+        var device = await _db.Devices.FirstOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
+        if (device is not null)
+        {
+            device.IsPinned = !device.IsPinned;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Removes the device and everything it ever reported. The event tables carry a plain DeviceId
+    /// column with no foreign key, so nothing cascades on its own - without deleting the events
+    /// here they would linger forever as rows belonging to a machine that no longer exists, still
+    /// counted in every total while being impossible to attribute to anything on screen.
+    /// Irreversible, hence the confirmation on the button.
+    /// </summary>
+    public async Task<IActionResult> OnPostDeleteAsync(Guid deviceId, CancellationToken cancellationToken)
+    {
+        await _db.AppUsageEvents.Where(e => e.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
+        await _db.IdlePeriods.Where(e => e.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
+        await _db.UrlVisits.Where(e => e.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
+        await _db.SessionBreaks.Where(e => e.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
+        await _db.Screenshots.Where(e => e.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
+        await _db.Devices.Where(d => d.DeviceId == deviceId).ExecuteDeleteAsync(cancellationToken);
 
         return RedirectToPage();
     }
