@@ -69,7 +69,18 @@
     </form>
 </div>
 
-@if (Model.DeviceSummaries.Count > 0)
+@if (Model.DeviceSummaries.Count == 0)
+{
+    @* A device only earns a summary card once it has AppUsage or Idle rows in range, so this
+       block used to render nothing at all - no card, no "Active time", no "Idle time", no
+       heading. An admin looking at a day of screenshots with the summary silently absent reads
+       it as the page being broken, when it means "this range has no app-usage or idle data". *@
+    <div class="alert alert-secondary mb-4" role="status">
+        No app usage or idle time recorded for this range, so there is nothing to summarise.
+        Screenshots and lock/unlock events, if any, still appear in the log below.
+    </div>
+}
+else
 {
     <div class="mb-4">
         @foreach (var summary in Model.DeviceSummaries)

@@ -126,7 +126,7 @@ public static class IngestEndpoints
         }
         else
         {
-            accepted.AddRange(batch.AppUsageEvents.Select(e => e.EventId));
+            DropByPolicy(logger, batch, "app usage", batch.AppUsageEvents.Select(e => e.EventId), accepted);
         }
 
         if (device.CaptureIdle)
@@ -146,7 +146,7 @@ public static class IngestEndpoints
         }
         else
         {
-            accepted.AddRange(batch.IdlePeriods.Select(e => e.EventId));
+            DropByPolicy(logger, batch, "idle", batch.IdlePeriods.Select(e => e.EventId), accepted);
         }
 
         if (device.CaptureUrlVisits)
@@ -169,7 +169,7 @@ public static class IngestEndpoints
         }
         else
         {
-            accepted.AddRange(batch.UrlVisits.Select(e => e.EventId));
+            DropByPolicy(logger, batch, "url visit", batch.UrlVisits.Select(e => e.EventId), accepted);
         }
 
         if (device.CaptureSessionBreaks)
@@ -189,14 +189,18 @@ public static class IngestEndpoints
         }
         else
         {
-            accepted.AddRange(batch.SessionBreaks.Select(e => e.EventId));
+            DropByPolicy(logger, batch, "session break", batch.SessionBreaks.Select(e => e.EventId), accepted);
+        }
+
+        if (!device.CaptureScreenshots && batch.Screenshots.Count > 0)
+        {
+            DropByPolicy(logger, batch, "screenshot", batch.Screenshots.Select(e => e.EventId), accepted);
         }
 
         foreach (var dto in batch.Screenshots)
         {
             if (!device.CaptureScreenshots)
             {
-                accepted.Add(dto.EventId);
                 continue;
             }
 
@@ -250,6 +254,29 @@ public static class IngestEndpoints
             batch.DeviceId, batch.UserName, accepted.Count, rejected.Count);
 
         return Results.Ok(new SyncBatchResponse(accepted, rejected));
+    }
+
+    /// <summary>
+    /// Acknowledges events the device's capture policy says not to store, and says so in the log.
+    /// They must still be acknowledged - the Agent deletes whatever comes back as accepted, and
+    /// leaving them unacknowledged would wedge the outbox retrying them forever. But a bare
+    /// AddRange made a switched-off capture type indistinguishable from a healthy one: the events
+    /// were dropped here and deleted at source with no trace at either end, so an admin who had
+    /// cleared a toggle by accident saw an empty Activity page and nothing to explain it.
+    /// </summary>
+    private static void DropByPolicy(
+        ILogger logger, SyncBatchRequest batch, string kind, IEnumerable<Guid> eventIds, List<Guid> accepted)
+    {
+        var before = accepted.Count;
+        accepted.AddRange(eventIds);
+        var dropped = accepted.Count - before;
+
+        if (dropped > 0)
+        {
+            logger.LogInformation(
+                "Dropped {Count} {Kind} event(s) from device {DeviceId} ({UserName}): capture is disabled for this device",
+                dropped, kind, batch.DeviceId, batch.UserName);
+        }
     }
 
     /// <summary>
