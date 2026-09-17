@@ -3,22 +3,61 @@
 @model ActivityModel
 @{
     ViewData["Title"] = "Activity";
+
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    int? activeRange = Model.ToDate == today && Model.FromDate is { } rangeFrom
+        ? today.DayNumber - rangeFrom.DayNumber
+        : null;
+
+    string rangeLabel = activeRange switch
+    {
+        0 => "Today",
+        6 => "Last 7 days",
+        29 => "Last 30 days",
+        _ when Model.FromDate == Model.ToDate && Model.FromDate is { } d => d.ToString("d MMM yyyy"),
+        _ => $"{Model.FromDate?.ToString("d MMM") ?? "Start"} – {Model.ToDate?.ToString("d MMM yyyy") ?? "now"}",
+    };
+
+    var selectedDevice = Model.KnownDevices.FirstOrDefault(d => d.DeviceId == Model.DeviceId)?.MachineName;
+    var scopeLabel = $"{Model.UserName ?? "All users"} · {selectedDevice ?? "All devices"}";
+    var deviceNames = Model.KnownDevices.ToDictionary(d => d.DeviceId, d => d.MachineName);
+
+    var typeLabels = new Dictionary<string, string>
+    {
+        ["AppUsage"] = "App usage",
+        ["UrlVisit"] = "Websites",
+        ["Idle"] = "Idle",
+        ["SessionBreak"] = "Locks & sleep",
+        ["Screenshot"] = "Screenshots",
+    };
+
+    const string noAppsText = "No application time in this range.";
+    const string noSitesText = "No website time in this range.";
+
+    var noTypesSelected = Model.TypesFilterApplied && (Model.Types is null || Model.Types.Length == 0);
+
+    // FormatDuration floors to whole minutes, which renders real-but-short time as "0m".
+    string Dur(double seconds) => seconds is > 0 and < 60 ? "<1m" : ActivityAggregation.FormatDuration(seconds);
+
+    var states = new[]
+    {
+        (Key: "active", Label: "Active"),
+        (Key: "idle", Label: "Idle"),
+        (Key: "locked", Label: "Screen locked"),
+        (Key: "asleep", Label: "Asleep or off"),
+    };
 }
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-        <h1 class="page-heading">Activity</h1>
-        <p class="page-subtitle mb-0">Monitor application usage, website visits and device activity across your organization.</p>
-    </div>
-</div>
+<header class="dash-header">
+    <h1 class="page-heading mb-1">Activity</h1>
+    <p class="page-subtitle mb-0">@rangeLabel <span aria-hidden="true">·</span> @scopeLabel</p>
+</header>
 
-<div class="filter-bar mb-4">
-    <form method="get" class="row g-2 align-items-center">
-        <div class="col-auto">
-            <label class="col-form-label" for="UserName">User</label>
-        </div>
-        <div class="col-auto">
-            <select class="form-select" id="UserName" name="UserName" onchange="this.form.submit()">
+<form method="get" class="filter-bar mb-4">
+    <div class="dash-filters p-0 border-0">
+        <div class="dash-field">
+            <label for="UserName">User</label>
+            <select class="form-select form-select-sm" id="UserName" name="UserName" onchange="this.form.submit()">
                 <option value="">All users</option>
                 @foreach (var user in Model.KnownUsers)
                 {
@@ -26,11 +65,9 @@
                 }
             </select>
         </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="DeviceId">Device</label>
-        </div>
-        <div class="col-auto">
-            <select class="form-select" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
+        <div class="dash-field">
+            <label for="DeviceId">Device</label>
+            <select class="form-select form-select-sm" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
                 <option value="">All devices</option>
                 @foreach (var device in Model.KnownDevices)
                 {
@@ -38,175 +75,327 @@
                 }
             </select>
         </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="FromDate">From</label>
+        <div class="dash-field">
+            <label for="FromDate">From</label>
+            <input type="date" class="form-control form-control-sm" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
         </div>
-        <div class="col-auto">
-            <input type="date" class="form-control" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        <div class="dash-field">
+            <label for="ToDate">To</label>
+            <input type="date" class="form-control form-control-sm" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
         </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="ToDate">To</label>
-        </div>
-        <div class="col-auto">
-            <input type="date" class="form-control" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
-        </div>
-        <div class="col-auto btn-group" role="group" aria-label="Quick date range">
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(0)">Today</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(6)">Last 7 days</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(29)">Last 30 days</button>
-        </div>
-        <div class="col-12 d-flex flex-wrap gap-2 mt-2">
-            @foreach (var type in ActivityModel.EventTypes)
+        <div class="dash-ranges" role="group" aria-label="Quick date range">
+            @foreach (var (days, label) in new[] { (0, "Today"), (6, "7 days"), (29, "30 days") })
             {
-                var isChecked = !Model.TypesFilterApplied || (Model.Types?.Contains(type) ?? false);
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="Types_@type" name="Types" value="@type" checked="@isChecked" onchange="this.form.submit()" />
-                    <label class="form-check-label" for="Types_@type">@type</label>
-                </div>
+                <button type="button" class="dash-range@(activeRange == days ? " is-active" : "")" aria-pressed="@(activeRange == days ? "true" : "false")" onclick="setDateRange(@days)">@label</button>
             }
-            <input type="hidden" name="TypesFilterApplied" value="true" />
         </div>
-    </form>
-</div>
+    </div>
+    <fieldset class="act-types">
+        <legend>Show in log</legend>
+        @foreach (var type in ActivityModel.EventTypes)
+        {
+            var isChecked = !Model.TypesFilterApplied || (Model.Types?.Contains(type) ?? false);
+            <label class="act-type" for="Types_@type">
+                <input type="checkbox" id="Types_@type" name="Types" value="@type" checked="@isChecked" onchange="this.form.submit()" />
+                <span>@typeLabels[type]</span>
+            </label>
+        }
+        <input type="hidden" name="TypesFilterApplied" value="true" />
+    </fieldset>
+</form>
 
 @if (Model.DeviceSummaries.Count == 0)
 {
-    @* A device only earns a summary card once it has AppUsage or Idle rows in range, so this
-       block used to render nothing at all - no card, no "Active time", no "Idle time", no
-       heading. An admin looking at a day of screenshots with the summary silently absent reads
-       it as the page being broken, when it means "this range has no app-usage or idle data". *@
-    <div class="alert alert-secondary mb-4" role="status">
-        No app usage or idle time recorded for this range, so there is nothing to summarise.
-        Screenshots and lock/unlock events, if any, still appear in the log below.
-    </div>
+    @* A device only earns a summary once it has tracked time in range, so without this the whole
+       section silently vanished and read as the page being broken. *@
+    <section class="card mb-4">
+        <div class="empty-state">
+            <div class="fw-semibold">No tracked time in this range</div>
+            <div class="small">No device reported app use, idle, lock or sleep time here. Screenshots, if any, still appear in the log below.</div>
+        </div>
+    </section>
 }
 else
 {
-    <div class="mb-4">
-        @foreach (var summary in Model.DeviceSummaries)
-        {
-            <div class="card mb-3">
-                <div class="card-header">
+    <div class="act-legend mb-2" aria-label="Timeline colours">
+        <span class="dash-note">Timeline in <span class="tz-label">UTC</span>. Hover a block for its exact times.</span>
+        <span class="act-legend-items">
+            @foreach (var s in states)
+            {
+                <span><span class="dash-swatch dash-seg-@s.Key" aria-hidden="true"></span>@s.Label</span>
+            }
+            <span><span class="dash-swatch act-untracked" aria-hidden="true"></span>Not tracked</span>
+        </span>
+    </div>
+
+    @foreach (var summary in Model.DeviceSummaries)
+    {
+        var t = summary.Time;
+        var values = new[] { t.ActiveSeconds, t.IdleSeconds, t.LockedSeconds, t.AsleepSeconds };
+        <section class="card mb-4" aria-labelledby="device-@summary.DeviceId">
+            <div class="card-header dash-card-head">
+                <h2 id="device-@summary.DeviceId" class="dash-section-title">
+                    @summary.MachineName
                     @if (summary.IsPinned)
                     {
-                        <span class="text-danger" title="Pinned">&#128204;</span>
+                        <svg class="dash-pin" viewBox="0 0 16 16" aria-label="Pinned" role="img"><path d="M10.5 1.5 14.5 5.5 11.8 6.9 9.4 9.3 9.6 12.4 8.4 13.6 5.6 10.8 2 14.4M5.6 10.8 2.4 7.6 3.6 6.4 6.7 6.6 9.1 4.2Z" /></svg>
                     }
-                    <strong>@summary.MachineName</strong>
+                </h2>
+                <span class="dash-note">Device totals for the range, all users</span>
+            </div>
+            <div class="act-device">
+                <dl class="act-totals">
+                    @for (var i = 0; i < states.Length; i++)
+                    {
+                        <div>
+                            <dt><span class="dash-swatch dash-seg-@states[i].Key" aria-hidden="true"></span>@states[i].Label</dt>
+                            <dd class="num">@Dur(values[i])</dd>
+                        </div>
+                    }
+                </dl>
+
+                <div class="act-timeline" data-device="@summary.DeviceId">
+                    <noscript><p class="dash-note">The timeline needs JavaScript.</p></noscript>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-auto">
-                            <div class="text-muted small">Active time</div>
-                            <div class="fs-4">@ActivityAggregation.FormatDuration(summary.ActiveSeconds)</div>
-                        </div>
-                        <div class="col-auto">
-                            <div class="text-muted small">Idle time</div>
-                            <div class="fs-4">@ActivityAggregation.FormatDuration(summary.IdleSeconds)</div>
-                        </div>
+
+                <div class="act-ranked-grid">
+                    <div>
+                        <h3 class="act-subtitle">Top applications</h3>
+                        <partial name="_RankedList" model="(summary.TopApps, noAppsText)" />
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Top 5 Apps</h6>
-                            <div style="height:220px">
-                                <canvas id="chart-apps-@summary.DeviceId"></canvas>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h6>Top 5 Websites</h6>
-                            <div style="height:220px">
-                                <canvas id="chart-sites-@summary.DeviceId"></canvas>
-                            </div>
-                        </div>
+                    <div>
+                        <h3 class="act-subtitle">Top websites</h3>
+                        <partial name="_RankedList" model="(summary.TopSites, noSitesText)" />
                     </div>
                 </div>
             </div>
-        }
-    </div>
+        </section>
+    }
 }
 
-<div class="card">
-    <div class="card-header"><strong>Activity Log (@Model.Rows.Count)</strong></div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead>
-                <tr>
-                    <th>Time (<span class="tz-label">UTC</span>)</th>
-                    <th>User</th>
-                    <th>Device</th>
-                    <th>Type</th>
-                    <th>Details</th>
-                    <th>Duration</th>
-                    <th>Screenshot</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in Model.Rows)
-                {
-                    <tr>
-                        <td data-utc="@row.TimestampUtc.ToString("o")" data-utc-format="datetime-s">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>@row.UserName</td>
-                        <td title="@row.DeviceId">@row.DeviceId.ToString()[..8]</td>
-                        <td><span class="badge-soft">@row.Kind</span></td>
-                        <td>@row.Details</td>
-                        <td>@(row.DurationSeconds is { } d ? ActivityAggregation.FormatRowDuration(d) : "")</td>
-                        <td>
-                            @if (row.ScreenshotId is { } screenshotId)
-                            {
-                                <a href="/api/screenshots/@screenshotId" target="_blank">
-                                    <img src="/api/screenshots/@screenshotId" style="max-width:100px;max-height:60px" />
-                                </a>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+<section class="card" aria-labelledby="log-heading">
+    <div class="card-header dash-card-head">
+        <h2 id="log-heading" class="dash-section-title">Activity log <span class="dash-note num">(@Model.Rows.Count)</span></h2>
+        <span class="dash-note">Newest first, up to 200 rows. Times in <span class="tz-label">UTC</span>.</span>
     </div>
-    @if (Model.Rows.Count == 0)
+    @if (Model.Rows.Count > 0)
     {
-        <div class="empty-state">
-            <div class="empty-state-icon">&#9679;&#9679;</div>
-            <div>No activity received yet. Make sure the Agent's sync client is running and pointed at this server.</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 dash-agents act-log">
+                <thead>
+                    <tr>
+                        <th scope="col">Time</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Details</th>
+                        <th scope="col" class="text-end">Duration</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Device</th>
+                        <th scope="col"><span class="visually-hidden">Screenshot</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="num text-nowrap" data-utc="@row.TimestampUtc.ToString("o")" data-utc-format="datetime-s">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="text-nowrap"><span class="act-kind is-@row.Kind.ToLowerInvariant()">@typeLabels[row.Kind]</span></td>
+                            <td class="act-details">@row.Details</td>
+                            <td class="num text-end text-nowrap">@(row.DurationSeconds is { } d ? ActivityAggregation.FormatRowDuration(d) : "")</td>
+                            <td class="text-nowrap">@row.UserName</td>
+                            <td class="text-nowrap" title="@row.DeviceId">@(deviceNames.GetValueOrDefault(row.DeviceId) ?? row.DeviceId.ToString()[..8])</td>
+                            <td>
+                                @if (row.ScreenshotId is { } screenshotId)
+                                {
+                                    <a href="/api/screenshots/@screenshotId" target="_blank" rel="noopener">
+                                        <img class="act-thumb" src="/api/screenshots/@screenshotId" alt="Screenshot taken at @row.TimestampUtc.ToString("HH:mm") UTC" loading="lazy" />
+                                    </a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
-</div>
+    else
+    {
+        <div class="empty-state">
+            @if (Model.KnownDevices.Count == 0)
+            {
+                <div class="fw-semibold">No agent has reported to this server yet</div>
+                <div class="small">Check the Agent is running and its server URL and API key point here.</div>
+            }
+            else if (noTypesSelected)
+            {
+                <div class="fw-semibold">No event types selected</div>
+                <div class="small">Tick at least one type under "Show in log".</div>
+            }
+            else
+            {
+                <div class="fw-semibold">Nothing matches these filters in this range</div>
+                <div class="small act-empty-hint">
+                    Idle is only recorded after 5 minutes without keyboard or mouse input.
+                    A lock is only sent once the screen is unlocked again.
+                </div>
+            }
+        </div>
+    }
+</section>
 
 @section Scripts {
-    <script src="~/lib/chartjs/chart.umd.js"></script>
     <script>
+        // UTC dates, matching the server's own "today" default.
         function setDateRange(daysBack) {
             const to = new Date();
-            const from = new Date();
-            from.setDate(to.getDate() - daysBack);
+            const from = new Date(to);
+            from.setUTCDate(to.getUTCDate() - daysBack);
             document.getElementById('FromDate').value = from.toISOString().slice(0, 10);
             document.getElementById('ToDate').value = to.toISOString().slice(0, 10);
             document.getElementById('FromDate').form.submit();
         }
 
-        const deviceChartData = @Html.Raw(JsonSerializer.Serialize(
-            Model.DeviceSummaries.Select(s => new { deviceId = s.DeviceId, topApps = s.TopApps, topSites = s.TopSites }),
-            ActivityAggregation.ChartJsonOptions));
+        const timeline = @Html.Raw(JsonSerializer.Serialize(new
+        {
+            fromDate = Model.FromDate?.ToString("yyyy-MM-dd"),
+            toDate = Model.ToDate?.ToString("yyyy-MM-dd"),
+            nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            devices = Model.DeviceSummaries.ToDictionary(
+                s => s.DeviceId.ToString(),
+                s => s.Segments.Select(x => new object[] { x.Start.ToUnixTimeMilliseconds(), x.End.ToUnixTimeMilliseconds(), (int)x.State })),
+        }));
 
-        function renderDonut(canvasId, slices) {
-            const el = document.getElementById(canvasId);
-            if (!el) return;
-            if (!slices || slices.length === 0) {
-                el.replaceWith(Object.assign(document.createElement('p'), { className: 'text-muted', textContent: 'No data' }));
-                return;
+        (function () {
+            const STATES = ['active', 'idle', 'locked', 'asleep'];
+            const LABELS = ['Active', 'Idle', 'Screen locked', 'Asleep or off'];
+            const MAX_DAYS = 14;
+            const DAY_MS = 86400000;
+
+            // Offset of a zone from UTC at an instant, in ms (positive east of UTC).
+            function zoneOffset(ms, tz) {
+                const p = {};
+                new Intl.DateTimeFormat('en-US', {
+                    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                }).formatToParts(new Date(ms)).forEach(x => p[x.type] = x.value);
+                return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - ms;
             }
-            new Chart(el, {
-                type: 'doughnut',
-                data: {
-                    labels: slices.map(s => s.label),
-                    datasets: [{ data: slices.map(s => s.seconds) }]
-                },
-                options: { maintainAspectRatio: false }
-            });
-        }
 
-        deviceChartData.forEach(d => {
-            renderDonut('chart-apps-' + d.deviceId, d.topApps);
-            renderDonut('chart-sites-' + d.deviceId, d.topSites);
-        });
+            // UTC instant of 00:00 on a calendar date in a zone. Two passes settle DST edges.
+            function zonedMidnight(y, m, d, tz) {
+                const guess = Date.UTC(y, m - 1, d);
+                let ms = guess - zoneOffset(guess, tz);
+                ms = guess - zoneOffset(ms, tz);
+                return ms;
+            }
+
+            function fmtTime(ms, tz) {
+                return new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
+            }
+
+            function fmtDur(seconds) {
+                if (seconds > 0 && seconds < 60) return '<1m';
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+            }
+
+            function days() {
+                if (!timeline.fromDate || !timeline.toDate) return [];
+                const list = [];
+                const [fy, fm, fd] = timeline.fromDate.split('-').map(Number);
+                const [ty, tm, td] = timeline.toDate.split('-').map(Number);
+                for (let t = Date.UTC(fy, fm - 1, fd); t <= Date.UTC(ty, tm - 1, td); t += DAY_MS) {
+                    const dt = new Date(t);
+                    list.push([dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()]);
+                }
+                return list.reverse().slice(0, MAX_DAYS);
+            }
+
+            function el(tag, cls, text) {
+                const e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text != null) e.textContent = text;
+                return e;
+            }
+
+            function render() {
+                const zone = window.TimeTrackerTz ? window.TimeTrackerTz.zone() : { tz: 'UTC', label: 'UTC' };
+                const dayList = days();
+
+                document.querySelectorAll('.act-timeline').forEach(container => {
+                    const segments = timeline.devices[container.dataset.device] || [];
+                    container.replaceChildren();
+
+                    const axis = el('div', 'act-axis');
+                    axis.setAttribute('aria-hidden', 'true');
+                    axis.appendChild(el('span'));
+                    const ticks = el('span', 'act-ticks');
+                    for (let h = 0; h <= 24; h += 3) {
+                        const tick = el('span', null, String(h).padStart(2, '0'));
+                        tick.style.left = (h / 24 * 100) + '%';
+                        ticks.appendChild(tick);
+                    }
+                    axis.appendChild(ticks);
+                    axis.appendChild(el('span'));
+                    container.appendChild(axis);
+
+                    dayList.forEach(([y, m, d]) => {
+                        const start = zonedMidnight(y, m, d, zone.tz);
+                        const end = zonedMidnight(...(() => { const n = new Date(Date.UTC(y, m - 1, d) + DAY_MS); return [n.getUTCFullYear(), n.getUTCMonth() + 1, n.getUTCDate()]; })(), zone.tz);
+                        const span = end - start;
+                        const totals = [0, 0, 0, 0];
+
+                        const row = el('div', 'act-day');
+                        const label = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })
+                            .format(new Date(Date.UTC(y, m - 1, d)));
+                        row.appendChild(el('span', 'act-day-label', label));
+
+                        const track = el('span', 'act-track');
+                        segments.forEach(([s, e, state]) => {
+                            const cs = Math.max(s, start), ce = Math.min(e, end);
+                            if (ce <= cs) return;
+                            totals[state] += (ce - cs) / 1000;
+                            const block = el('span', 'act-block dash-seg-' + STATES[state]);
+                            block.style.left = ((cs - start) / span * 100) + '%';
+                            block.style.width = ((ce - cs) / span * 100) + '%';
+                            block.title = LABELS[state] + ' · ' + fmtTime(cs, zone.tz) + '–' + fmtTime(ce, zone.tz) + ' · ' + fmtDur((ce - cs) / 1000);
+                            track.appendChild(block);
+                        });
+
+                        if (timeline.nowMs > start && timeline.nowMs < end) {
+                            const future = el('span', 'act-future');
+                            future.style.left = ((timeline.nowMs - start) / span * 100) + '%';
+                            future.title = 'Later today';
+                            track.appendChild(future);
+                        }
+
+                        const summary = STATES.map((_, i) => totals[i] > 0 ? fmtDur(totals[i]) + ' ' + LABELS[i].toLowerCase() : null).filter(Boolean);
+                        track.setAttribute('role', 'img');
+                        track.setAttribute('aria-label', label + ': ' + (summary.length ? summary.join(', ') : 'nothing tracked'));
+                        row.appendChild(track);
+
+                        const idleLocked = el('span', 'act-day-sum num');
+                        idleLocked.textContent = totals[0] + totals[1] + totals[2] + totals[3] > 0
+                            ? fmtDur(totals[1]) + ' idle · ' + fmtDur(totals[2]) + ' locked'
+                            : 'Not tracked';
+                        row.appendChild(idleLocked);
+
+                        container.appendChild(row);
+                    });
+
+                    if (timeline.fromDate && timeline.toDate) {
+                        const [fy, fm, fd] = timeline.fromDate.split('-').map(Number);
+                        const [ty, tm, td] = timeline.toDate.split('-').map(Number);
+                        const count = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / DAY_MS) + 1;
+                        if (count > MAX_DAYS) {
+                            container.appendChild(el('p', 'dash-note mb-0 mt-2', 'Showing the most recent ' + MAX_DAYS + ' of ' + count + ' days.'));
+                        }
+                    }
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', render);
+            document.addEventListener('tt-timezone-change', render);
+        })();
     </script>
 }

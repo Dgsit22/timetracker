@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
-using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Server.Pages;
 
@@ -191,66 +190,18 @@ public class DashboardModel : PageModel
         return off.Count == 0 ? "" : string.Join(", ", off);
     }
 
-    /// <summary>
-    /// Selects by overlap with the period rather than by start time, and lets TimeBreakdown clip
-    /// to the bounds: a lock that began before midnight still covers the first hours of today,
-    /// and counting it all on the day it started would push today's locked time into yesterday.
-    /// </summary>
     private async Task<TimeBreakdown> LoadTimeBreakdownAsync(
         HashSet<string> excludedUserNames,
         DateTimeOffset? fromUtc,
         DateTimeOffset? toUtcExclusive,
         CancellationToken cancellationToken)
     {
-        var appUsage = _db.AppUsageEvents.Where(e => !excludedUserNames.Contains(e.UserName));
-        var idle = _db.IdlePeriods.Where(e => !excludedUserNames.Contains(e.UserName));
-        var breaks = _db.SessionBreaks.Where(e => !excludedUserNames.Contains(e.UserName) && e.BreakEndUtc != null);
-
-        if (!string.IsNullOrWhiteSpace(UserName))
-        {
-            appUsage = appUsage.Where(e => e.UserName == UserName);
-            idle = idle.Where(e => e.UserName == UserName);
-            breaks = breaks.Where(e => e.UserName == UserName);
-        }
-
-        if (DeviceId is { } deviceId)
-        {
-            appUsage = appUsage.Where(e => e.DeviceId == deviceId);
-            idle = idle.Where(e => e.DeviceId == deviceId);
-            breaks = breaks.Where(e => e.DeviceId == deviceId);
-        }
-
-        if (fromUtc is { } from)
-        {
-            appUsage = appUsage.Where(e => e.EndedAtUtc > from);
-            idle = idle.Where(e => e.EndedAtUtc > from);
-            breaks = breaks.Where(e => e.BreakEndUtc > from);
-        }
-
-        if (toUtcExclusive is { } to)
-        {
-            appUsage = appUsage.Where(e => e.StartedAtUtc < to);
-            idle = idle.Where(e => e.StartedAtUtc < to);
-            breaks = breaks.Where(e => e.BreakStartUtc < to);
-        }
-
-        var appIntervals = await appUsage.Select(e => new { e.DeviceId, e.StartedAtUtc, e.EndedAtUtc }).ToListAsync(cancellationToken);
-        var idleIntervals = await idle.Select(e => new { e.DeviceId, e.StartedAtUtc, e.EndedAtUtc }).ToListAsync(cancellationToken);
-        var breakIntervals = await breaks.Select(e => new { e.DeviceId, e.BreakStartUtc, e.BreakEndUtc, e.Reason }).ToListAsync(cancellationToken);
-
-        var isAsleep = (SessionBreakReason r) => r is SessionBreakReason.MachineSleep or SessionBreakReason.MachineShutdown;
+        var intervals = await TimeBreakdown.LoadIntervalsAsync(
+            _db, excludedUserNames, UserName, DeviceId, fromUtc, toUtcExclusive, cancellationToken);
 
         // Never past now: a period that ends tomorrow must not count hours that haven't happened.
         var now = DateTimeOffset.UtcNow;
-        var upperBound = toUtcExclusive is { } t && t < now ? t : now;
-
-        return TimeBreakdown.Compute(
-            appIntervals.Select(e => new DeviceInterval(e.DeviceId, e.StartedAtUtc, e.EndedAtUtc)),
-            idleIntervals.Select(e => new DeviceInterval(e.DeviceId, e.StartedAtUtc, e.EndedAtUtc)),
-            breakIntervals.Where(e => !isAsleep(e.Reason)).Select(e => new DeviceInterval(e.DeviceId, e.BreakStartUtc, e.BreakEndUtc!.Value)),
-            breakIntervals.Where(e => isAsleep(e.Reason)).Select(e => new DeviceInterval(e.DeviceId, e.BreakStartUtc, e.BreakEndUtc!.Value)),
-            fromUtc,
-            upperBound);
+        return TimeBreakdown.Compute(intervals, fromUtc, toUtcExclusive is { } t && t < now ? t : now);
     }
 
     private static double? PercentChange(double previous, double current)

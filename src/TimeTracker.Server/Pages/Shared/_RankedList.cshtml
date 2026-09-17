@@ -1,0 +1,35 @@
+@model (List<CategorySlice> Slices, string EmptyText)
+@{
+    var max = Model.Slices.Where(s => s.Label != "Other").Select(s => s.Seconds).DefaultIfEmpty(0).Max();
+    var total = Model.Slices.Sum(s => s.Seconds);
+    var invariant = System.Globalization.CultureInfo.InvariantCulture;
+
+    // FormatDuration floors to whole minutes, which renders real-but-short time as "0m".
+    string Dur(double seconds) => seconds is > 0 and < 60 ? "<1m" : ActivityAggregation.FormatDuration(seconds);
+}
+
+@if (Model.Slices.Count == 0)
+{
+    <p class="dash-ranked-empty">@Model.EmptyText</p>
+}
+else
+{
+    <ol class="dash-ranked">
+        @foreach (var slice in Model.Slices)
+        {
+            var isOther = slice.Label == "Other";
+            var width = max > 0 ? Math.Min(100, slice.Seconds / max * 100) : 0;
+            <li class="@(isOther ? "is-other" : "")">
+                <span class="dash-ranked-label" title="@slice.Label">@slice.Label</span>
+                <span class="dash-ranked-value num">@Dur(slice.Seconds)</span>
+                <span class="dash-ranked-share num">@((total > 0 ? slice.Seconds / total * 100 : 0).ToString("F0"))%</span>
+                @if (!isOther)
+                {
+                    <span class="dash-ranked-track" aria-hidden="true">
+                        <span style="width:@width.ToString("F2", invariant)%"></span>
+                    </span>
+                }
+            </li>
+        }
+    </ol>
+}

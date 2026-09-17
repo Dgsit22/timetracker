@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
+using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Server.Pages;
 
@@ -25,6 +26,10 @@ public class ActivityModel : PageModel
     public List<Device> KnownDevices { get; private set; } = new();
 
     public List<DeviceSummary> DeviceSummaries { get; private set; } = new();
+
+    public DateTimeOffset? TimelineFromUtc { get; private set; }
+
+    public DateTimeOffset? TimelineToUtc { get; private set; }
 
     [BindProperty(SupportsGet = true)]
     public string? UserName { get; set; }
@@ -124,39 +129,51 @@ public class ActivityModel : PageModel
         // or the event-type checkboxes below - it's a device-level aggregate, a separate concern
         // from which raw rows the results table shows. Still excludes hidden users, same as everything.
         var summaryAppUsage = _db.AppUsageEvents.Where(e => !excludedUserNames.Contains(e.UserName));
-        var summaryIdle = _db.IdlePeriods.Where(e => !excludedUserNames.Contains(e.UserName));
         var summaryUrlVisits = _db.UrlVisits.Where(e => !excludedUserNames.Contains(e.UserName));
 
         if (DeviceId is { } summaryDeviceId)
         {
             summaryAppUsage = summaryAppUsage.Where(e => e.DeviceId == summaryDeviceId);
-            summaryIdle = summaryIdle.Where(e => e.DeviceId == summaryDeviceId);
             summaryUrlVisits = summaryUrlVisits.Where(e => e.DeviceId == summaryDeviceId);
         }
 
         if (fromUtc is { } summaryFrom)
         {
             summaryAppUsage = summaryAppUsage.Where(e => e.StartedAtUtc >= summaryFrom);
-            summaryIdle = summaryIdle.Where(e => e.StartedAtUtc >= summaryFrom);
             summaryUrlVisits = summaryUrlVisits.Where(e => e.StartedAtUtc >= summaryFrom);
         }
 
         if (toUtcExclusive is { } summaryTo)
         {
             summaryAppUsage = summaryAppUsage.Where(e => e.StartedAtUtc < summaryTo);
-            summaryIdle = summaryIdle.Where(e => e.StartedAtUtc < summaryTo);
             summaryUrlVisits = summaryUrlVisits.Where(e => e.StartedAtUtc < summaryTo);
         }
 
-        var activeTotals = await summaryAppUsage
-            .GroupBy(e => e.DeviceId)
-            .Select(g => new { g.Key, Total = g.Sum(e => e.DurationSeconds) })
-            .ToDictionaryAsync(x => x.Key, x => x.Total, cancellationToken);
+        // The timeline draws whole days in the viewer's chosen display timezone, which the page
+        // only knows client-side, so segments are loaded with enough slack either side of the UTC
+        // range to cover any supported zone's midnight (IST +5:30, EST -5). Totals below stay on
+        // the UTC range, matching the Dashboard and every other filter on the site.
+        var now = DateTimeOffset.UtcNow;
+        var slack = TimeSpan.FromHours(14);
+        TimelineFromUtc = fromUtc - slack;
+        TimelineToUtc = toUtcExclusive is { } rangeEnd && rangeEnd + slack < now ? rangeEnd + slack : now;
 
-        var idleTotals = await summaryIdle
-            .GroupBy(e => e.DeviceId)
-            .Select(g => new { g.Key, Total = g.Sum(e => e.DurationSeconds) })
-            .ToDictionaryAsync(x => x.Key, x => x.Total, cancellationToken);
+        var intervals = await TimeBreakdown.LoadIntervalsAsync(
+            _db, excludedUserNames, null, DeviceId, TimelineFromUtc, TimelineToUtc, cancellationToken);
+        var segmentsByDevice = TimeBreakdown.Resolve(intervals, TimelineFromUtc, TimelineToUtc.Value)
+            .GroupBy(x => x.DeviceId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        TimeBreakdown TotalsInRange(Guid deviceId) => TimeBreakdown.Sum(
+            (segmentsByDevice.GetValueOrDefault(deviceId) ?? new())
+                .Select(x => x with
+                {
+                    Start = fromUtc is { } f && x.Start < f ? f : x.Start,
+                    End = toUtcExclusive is { } t && x.End > t ? t : x.End,
+                })
+                .Where(x => x.End > x.Start));
+
+        var totalsByDevice = KnownDevices.ToDictionary(d => d.DeviceId, d => TotalsInRange(d.DeviceId));
 
         var appTotals = await summaryAppUsage
             .GroupBy(e => new { e.DeviceId, e.ProcessName })
@@ -178,20 +195,20 @@ public class ActivityModel : PageModel
 
         var devicesToSummarize = DeviceId is { } filterDeviceId
             ? KnownDevices.Where(d => d.DeviceId == filterDeviceId)
-            : KnownDevices.Where(d => activeTotals.ContainsKey(d.DeviceId) || idleTotals.ContainsKey(d.DeviceId));
+            : KnownDevices.Where(d => totalsByDevice[d.DeviceId].TotalSeconds > 0);
 
         DeviceSummaries = devicesToSummarize
             .Select(d => new DeviceSummary(
                 d.DeviceId, d.MachineName,
-                activeTotals.GetValueOrDefault(d.DeviceId),
-                idleTotals.GetValueOrDefault(d.DeviceId),
+                totalsByDevice.GetValueOrDefault(d.DeviceId) ?? new TimeBreakdown(0, 0, 0, 0),
+                segmentsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<StateSegment>(),
                 topAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
                 topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
                 d.IsPinned))
             // Pinned first, so a machine being watched closely stays at the top even on a quiet
             // day when its active time would otherwise sink below everything else.
             .OrderByDescending(s => s.IsPinned)
-            .ThenByDescending(s => s.ActiveSeconds)
+            .ThenByDescending(s => s.Time.ActiveSeconds)
             .ToList();
 
         var includedTypes = TypesFilterApplied
@@ -222,11 +239,31 @@ public class ActivityModel : PageModel
 
         if (includedTypes.Contains("Idle"))
         {
-            rows.AddRange(await idle.OrderByDescending(e => e.StartedAtUtc).Take(perTypeLimit)
-                .Select(e => new ActivityRow(
-                    "Idle", e.UserName, e.DeviceId, e.StartedAtUtc,
-                    $"Idle >= {e.IdleThresholdSeconds}s", e.DurationSeconds, null))
-                .ToListAsync(cancellationToken));
+            // The Agent flushes an ongoing idle stretch every minute so totals advance live, which
+            // made a 20-minute absence twenty near-identical rows. Contiguous chunks are joined back
+            // into the one span they describe; the extra fetch headroom keeps the cap per span.
+            var idleChunks = await idle.OrderByDescending(e => e.StartedAtUtc).Take(perTypeLimit * 30)
+                .Select(e => new { e.UserName, e.DeviceId, e.StartedAtUtc, e.EndedAtUtc, e.IdleThresholdSeconds })
+                .ToListAsync(cancellationToken);
+
+            var spans = new List<(string UserName, Guid DeviceId, DateTimeOffset Start, DateTimeOffset End, int Threshold)>();
+            foreach (var chunk in idleChunks.OrderBy(e => e.DeviceId).ThenBy(e => e.StartedAtUtc))
+            {
+                if (spans.Count > 0 && spans[^1].DeviceId == chunk.DeviceId && spans[^1].UserName == chunk.UserName
+                    && chunk.StartedAtUtc - spans[^1].End <= TimeSpan.FromSeconds(15))
+                {
+                    var last = spans[^1];
+                    spans[^1] = last with { End = chunk.EndedAtUtc > last.End ? chunk.EndedAtUtc : last.End };
+                }
+                else
+                {
+                    spans.Add((chunk.UserName, chunk.DeviceId, chunk.StartedAtUtc, chunk.EndedAtUtc, chunk.IdleThresholdSeconds));
+                }
+            }
+
+            rows.AddRange(spans.OrderByDescending(x => x.Start).Take(perTypeLimit).Select(x => new ActivityRow(
+                "Idle", x.UserName, x.DeviceId, x.Start,
+                $"No keyboard or mouse input (counts as idle after {x.Threshold / 60} min)", (x.End - x.Start).TotalSeconds, null)));
         }
 
         if (includedTypes.Contains("SessionBreak"))
@@ -235,7 +272,7 @@ public class ActivityModel : PageModel
                 .ToListAsync(cancellationToken);
             rows.AddRange(breakEntities.Select(e => new ActivityRow(
                 "SessionBreak", e.UserName, e.DeviceId, e.BreakStartUtc,
-                $"{e.Reason} -> {(e.EndReason == null ? "(open)" : e.EndReason.ToString())}",
+                DescribeBreak(e.Reason, e.EndReason),
                 e.BreakEndUtc == null ? null : (e.BreakEndUtc.Value - e.BreakStartUtc).TotalSeconds,
                 null)));
         }
@@ -251,6 +288,29 @@ public class ActivityModel : PageModel
 
         Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(200).ToList();
     }
+
+    private static string DescribeBreak(SessionBreakReason reason, SessionBreakEndReason? endReason)
+    {
+        var start = reason switch
+        {
+            SessionBreakReason.Lock => "Screen locked",
+            SessionBreakReason.Logoff => "Signed out",
+            SessionBreakReason.MachineSleep => "Asleep",
+            SessionBreakReason.MachineShutdown => "Shut down",
+            _ => reason.ToString(),
+        };
+
+        var end = endReason switch
+        {
+            SessionBreakEndReason.Unlock => "unlocked",
+            SessionBreakEndReason.Logon => "signed back in",
+            SessionBreakEndReason.MachineWake => "woke up",
+            null => "still away",
+            _ => endReason.ToString(),
+        };
+
+        return $"{start}, then {end}";
+    }
 }
 
 public record ActivityRow(
@@ -265,8 +325,8 @@ public record ActivityRow(
 public record DeviceSummary(
     Guid DeviceId,
     string MachineName,
-    double ActiveSeconds,
-    double IdleSeconds,
+    TimeBreakdown Time,
+    List<StateSegment> Segments,
     List<CategorySlice> TopApps,
     List<CategorySlice> TopSites,
     bool IsPinned);

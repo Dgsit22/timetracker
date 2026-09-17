@@ -80,9 +80,16 @@
         }
 
         applyTimezone();
+        document.dispatchEvent(new CustomEvent("tt-timezone-change"));
     }
 
-    window.TimeTrackerTz = { apply: applyTimezone, set: setTimezone };
+    // zone() lets pages that draw time themselves (the Activity timeline) follow the same choice,
+    // re-rendering on the tt-timezone-change event.
+    window.TimeTrackerTz = {
+        apply: applyTimezone,
+        set: setTimezone,
+        zone: function () { return ZONES[getStoredZoneKey()]; },
+    };
 
     document.addEventListener("DOMContentLoaded", function () {
         applyTimezone();

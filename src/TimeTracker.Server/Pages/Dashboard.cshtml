@@ -225,38 +225,12 @@
         ("sites", "Top websites", Model.TopSites, "No website time in this period."),
     })
     {
-        var max = slices.Where(s => s.Label != "Other").Select(s => s.Seconds).DefaultIfEmpty(0).Max();
-        var total = slices.Sum(s => s.Seconds);
         <section class="card" aria-labelledby="top-@id-heading">
             <div class="card-header dash-card-head">
                 <h2 id="top-@id-heading" class="dash-section-title">@title</h2>
                 <span class="dash-note">Time in the foreground</span>
             </div>
-            @if (slices.Count == 0)
-            {
-                <div class="empty-state"><div>@empty</div></div>
-            }
-            else
-            {
-                <ol class="dash-ranked">
-                    @foreach (var slice in slices)
-                    {
-                        var isOther = slice.Label == "Other";
-                        var width = max > 0 ? Math.Min(100, slice.Seconds / max * 100) : 0;
-                        <li class="@(isOther ? "is-other" : "")">
-                            <span class="dash-ranked-label" title="@slice.Label">@slice.Label</span>
-                            <span class="dash-ranked-value num">@Dur(slice.Seconds)</span>
-                            <span class="dash-ranked-share num">@((total > 0 ? slice.Seconds / total * 100 : 0).ToString("F0"))%</span>
-                            @if (!isOther)
-                            {
-                                <span class="dash-ranked-track" aria-hidden="true">
-                                    <span style="width:@width.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%"></span>
-                                </span>
-                            }
-                        </li>
-                    }
-                </ol>
-            }
+            <partial name="_RankedList" model="(slices, empty)" />
         </section>
     }
 </div>
