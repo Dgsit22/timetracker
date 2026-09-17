@@ -45,14 +45,14 @@
         : $"{(int)t.TotalDays}d ago";
 }
 
-<header class="dash-header">
+<header class="dash-header dash-apple-header">
     <div>
         <h1 class="page-heading mb-1">Dashboard</h1>
         <p class="page-subtitle mb-0">@rangeLabel <span aria-hidden="true">·</span> @scopeLabel</p>
     </div>
 </header>
 
-<form method="get" class="filter-bar dash-filters mb-4">
+<form method="get" class="filter-bar dash-filters dash-apple-filters mb-4">
     <div class="dash-field">
         <label for="UserName">User</label>
         <select class="form-select form-select-sm" id="UserName" name="UserName" onchange="this.form.submit()">
@@ -89,7 +89,7 @@
     </div>
 </form>
 
-<section class="card dash-time mb-4" aria-labelledby="time-heading">
+<section class="card dash-time dash-apple-surface mb-4" aria-labelledby="time-heading">
     <div class="dash-time-head">
         <div>
             <h2 id="time-heading" class="dash-section-title">Where the time went</h2>
@@ -155,7 +155,7 @@
     </dl>
 </section>
 
-<section class="card mb-4" aria-labelledby="agents-heading">
+<section class="card dash-apple-surface mb-4" aria-labelledby="agents-heading">
     <div class="card-header dash-card-head">
         <h2 id="agents-heading" class="dash-section-title">Agent status</h2>
         <span class="dash-note">Live, ignores the date filter. Counts cover the last hour.</span>
@@ -225,7 +225,7 @@
         ("sites", "Top websites", Model.TopSites, "No website time in this period."),
     })
     {
-        <section class="card" aria-labelledby="top-@id-heading">
+        <section class="card dash-apple-surface" aria-labelledby="top-@id-heading">
             <div class="card-header dash-card-head">
                 <h2 id="top-@id-heading" class="dash-section-title">@title</h2>
                 <span class="dash-note">Time in the foreground</span>

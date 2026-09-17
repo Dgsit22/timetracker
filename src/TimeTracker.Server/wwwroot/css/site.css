@@ -780,6 +780,176 @@ a {
   color: var(--color-text-muted);
 }
 
+/* Apple-inspired dashboard: quiet hierarchy, material depth, and direct feedback.
+   Scoped to this page so the administrative forms elsewhere keep their denser treatment. */
+.dash-apple-header {
+  display: flex;
+  align-items: end;
+  min-height: 5.5rem;
+  padding: 0.75rem 0 0.25rem;
+}
+
+.dash-apple-header .page-heading {
+  font-size: clamp(2rem, 3.4vw, 2.8rem);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.dash-apple-header .page-subtitle {
+  margin-top: 0.55rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+.dash-apple-filters {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 10;
+  border-color: rgba(255, 255, 255, 0.64);
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 12px 30px rgba(1, 50, 55, 0.08), 0 1px 1px rgba(1, 50, 55, 0.05);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+.dash-apple-filters .form-select,
+.dash-apple-filters .form-control {
+  min-height: 2.1rem;
+  border-color: transparent;
+  background-color: rgba(253, 246, 242, 0.76);
+  border-radius: 0.55rem;
+  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.06);
+}
+
+.dash-apple-filters .form-select:hover,
+.dash-apple-filters .form-control:hover {
+  background-color: #fff;
+}
+
+.dash-apple-surface {
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 18px 44px rgba(1, 50, 55, 0.07), 0 2px 4px rgba(1, 50, 55, 0.03);
+}
+
+.dash-apple-surface .card-header {
+  background: rgba(255, 255, 255, 0.42);
+  border-bottom-color: rgba(1, 50, 55, 0.07);
+}
+
+.dash-time.dash-apple-surface {
+  background:
+    radial-gradient(circle at 91% -10%, rgba(254, 174, 150, 0.34), transparent 30rem),
+    rgba(255, 255, 255, 0.88);
+}
+
+.dash-section-title {
+  font-size: 1.05rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.dash-stats {
+  gap: 0;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.06);
+  overflow: hidden;
+}
+
+.dash-stats > div {
+  padding: 0.35rem 1rem 0.45rem;
+}
+
+.dash-stats > div + div {
+  border-left: 1px solid rgba(1, 50, 55, 0.08);
+}
+
+.dash-stats dd {
+  letter-spacing: -0.025em;
+}
+
+.dash-time-bar {
+  height: 1.45rem;
+  padding: 2px;
+  gap: 3px;
+  border-radius: 999px;
+  background: rgba(1, 50, 55, 0.08);
+  box-shadow: inset 0 1px 2px rgba(1, 50, 55, 0.08);
+}
+
+.dash-seg {
+  border-radius: 999px;
+  transition: filter 180ms ease-out, transform 180ms ease-out;
+}
+
+.dash-seg:hover {
+  filter: saturate(1.15) brightness(1.04);
+  transform: scaleY(1.18);
+}
+
+.dash-legend-item {
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  background: rgba(253, 246, 242, 0.68);
+  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.045);
+}
+
+.dash-legend-value {
+  letter-spacing: -0.04em;
+}
+
+.dash-range {
+  transition: transform 100ms ease-out, background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.dash-range:active {
+  transform: scale(0.96);
+}
+
+.dash-range.is-active {
+  box-shadow: 0 1px 3px rgba(1, 50, 55, 0.12), inset 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.dash-agents tbody tr,
+.dash-ranked li {
+  transition: background-color 180ms ease-out, transform 180ms ease-out;
+}
+
+.dash-agents tbody tr:hover {
+  transform: translateX(2px);
+}
+
+.dash-ranked li:hover {
+  background: rgba(253, 246, 242, 0.78);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-range,
+  .dash-seg,
+  .dash-agents tbody tr,
+  .dash-ranked li {
+    transition: none;
+  }
+
+  .dash-seg:hover,
+  .dash-agents tbody tr:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .dash-apple-filters,
+  .dash-apple-surface,
+  .dash-apple-surface .card-header {
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 /* ==========================================================================
    Activity
    ========================================================================== */
