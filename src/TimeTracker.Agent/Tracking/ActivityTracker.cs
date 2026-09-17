@@ -28,7 +28,7 @@ public class ActivityTracker : BackgroundService
     private readonly AgentOptions _options;
     private readonly ILogger<ActivityTracker> _logger;
 
-    private (string ProcessName, string WindowTitle, DateTimeOffset StartedAtUtc)? _current;
+    private (string ProcessName, string WindowTitle, DateTimeOffset StartedAtUtc, Guid AppUsageEventId, Guid UrlVisitEventId)? _current;
 
     public ActivityTracker(
         IEventStore store,
@@ -52,7 +52,7 @@ public class ActivityTracker : BackgroundService
         {
             try
             {
-                Poll(DateTimeOffset.UtcNow);
+                await PollAsync(DateTimeOffset.UtcNow, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -66,14 +66,24 @@ public class ActivityTracker : BackgroundService
     {
         if (_current is { } segment)
         {
-            await CloseSegmentAsync(segment, DateTimeOffset.UtcNow, cancellationToken);
+            try
+            {
+                await CloseSegmentAsync(segment, DateTimeOffset.UtcNow, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Last write before shutdown - nothing left to retry into, so this one really is
+                // lost. Logged rather than thrown so it can't block the host from stopping.
+                _logger.LogWarning(ex, "Failed to flush the final activity segment on shutdown");
+            }
+
             _current = null;
         }
 
         await base.StopAsync(cancellationToken);
     }
 
-    private void Poll(DateTimeOffset now)
+    private async Task PollAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
         var hWnd = NativeMethods.GetForegroundWindow();
         if (hWnd == IntPtr.Zero)
@@ -108,14 +118,19 @@ public class ActivityTracker : BackgroundService
 
         if (_current is { } previous)
         {
-            _ = CloseSegmentAsync(previous, now, CancellationToken.None);
+            // Awaited, and deliberately ahead of advancing _current: a throwing write (a locked
+            // outbox, most likely) leaves the old segment open, so the next poll retries it with a
+            // later end time and the span is merely delayed. The previous fire-and-forget dropped
+            // it silently - _current had already moved on, so that stretch of the user's day was
+            // gone for good with only an event-log warning behind it.
+            await CloseSegmentAsync(previous, now, cancellationToken);
         }
 
-        _current = (processName, windowTitle, now);
+        _current = (processName, windowTitle, now, Guid.NewGuid(), Guid.NewGuid());
     }
 
     private async Task CloseSegmentAsync(
-        (string ProcessName, string WindowTitle, DateTimeOffset StartedAtUtc) segment,
+        (string ProcessName, string WindowTitle, DateTimeOffset StartedAtUtc, Guid AppUsageEventId, Guid UrlVisitEventId) segment,
         DateTimeOffset endedAtUtc,
         CancellationToken cancellationToken)
     {
@@ -125,43 +140,36 @@ public class ActivityTracker : BackgroundService
             return;
         }
 
-        try
+        var policy = _policyCache.Current;
+
+        if (policy.CaptureAppUsage)
         {
-            var policy = _policyCache.Current;
-
-            if (policy.CaptureAppUsage)
-            {
-                await _store.AddAppUsageEventAsync(
-                    new AppUsageEventDto(
-                        Guid.NewGuid(),
-                        _deviceIdentity.DeviceId,
-                        segment.ProcessName,
-                        segment.WindowTitle,
-                        segment.StartedAtUtc,
-                        endedAtUtc,
-                        duration),
-                    cancellationToken);
-            }
-
-            if (policy.CaptureUrlVisits && KnownBrowsers.TryGetValue(segment.ProcessName, out var browser))
-            {
-                await _store.AddUrlVisitAsync(
-                    new UrlVisitEventDto(
-                        Guid.NewGuid(),
-                        _deviceIdentity.DeviceId,
-                        browser,
-                        null,
-                        segment.WindowTitle,
-                        segment.StartedAtUtc,
-                        endedAtUtc,
-                        duration,
-                        UrlCaptureMethod.TitleOnly),
-                    cancellationToken);
-            }
+            await _store.AddAppUsageEventAsync(
+                new AppUsageEventDto(
+                    segment.AppUsageEventId,
+                    _deviceIdentity.DeviceId,
+                    segment.ProcessName,
+                    segment.WindowTitle,
+                    segment.StartedAtUtc,
+                    endedAtUtc,
+                    duration),
+                cancellationToken);
         }
-        catch (Exception ex)
+
+        if (policy.CaptureUrlVisits && KnownBrowsers.TryGetValue(segment.ProcessName, out var browser))
         {
-            _logger.LogWarning(ex, "Failed to store activity segment for {ProcessName}", segment.ProcessName);
+            await _store.AddUrlVisitAsync(
+                new UrlVisitEventDto(
+                    segment.UrlVisitEventId,
+                    _deviceIdentity.DeviceId,
+                    browser,
+                    null,
+                    segment.WindowTitle,
+                    segment.StartedAtUtc,
+                    endedAtUtc,
+                    duration,
+                    UrlCaptureMethod.TitleOnly),
+                cancellationToken);
         }
     }
 }

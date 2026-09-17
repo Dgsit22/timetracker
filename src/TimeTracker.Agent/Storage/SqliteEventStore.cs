@@ -24,12 +24,21 @@ public class SqliteEventStore : IEventStore
         Directory.CreateDirectory(_screenshotDirectory);
 
         var dbPath = Path.Combine(dataDirectory, "agent.db");
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = dbPath,
+            // Seconds a command waits on a locked database before giving up. The trackers write
+            // from five different background services, so contention is routine, not exceptional.
+            DefaultTimeout = 30,
+        }.ToString();
 
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
+            PRAGMA journal_mode = WAL;
+            PRAGMA busy_timeout = 30000;
+
             CREATE TABLE IF NOT EXISTS OutboxEvents (
                 EventId TEXT PRIMARY KEY,
                 EventType TEXT NOT NULL,
@@ -155,7 +164,7 @@ public class SqliteEventStore : IEventStore
 
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO OutboxEvents (EventId, EventType, PayloadJson, CreatedAtUtc)
+            INSERT OR IGNORE INTO OutboxEvents (EventId, EventType, PayloadJson, CreatedAtUtc)
             VALUES ($eventId, $eventType, $payloadJson, $createdAtUtc);
             """;
         command.Parameters.AddWithValue("$eventId", eventId.ToString());
