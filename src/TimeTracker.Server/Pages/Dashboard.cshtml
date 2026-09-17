@@ -1,118 +1,42 @@
 @page
-@using System.Text.Json
 @model DashboardModel
 @{
     ViewData["Title"] = "Dashboard";
 
-    string ChangeBadge(double? percent)
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    int? activeRange = Model.ToDate == today && Model.FromDate is { } rangeFrom
+        ? today.DayNumber - rangeFrom.DayNumber
+        : null;
+
+    string rangeLabel = activeRange switch
     {
-        if (percent is null)
-        {
-            return "<span class=\"text-muted small\">no prior data</span>";
-        }
-
-        var rounded = Math.Round(percent.Value);
-        var arrow = rounded >= 0 ? "&#8593;" : "&#8595;";
-        var cls = rounded >= 0 ? "text-success" : "text-danger";
-        return $"<span class=\"{cls} small fw-semibold\">{arrow} {Math.Abs(rounded)}%</span> <span class=\"text-muted small\">vs previous period</span>";
-    }
-}
-
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-        <h1 class="page-heading">Dashboard</h1>
-        <p class="page-subtitle mb-0">Organization-wide activity at a glance.</p>
-    </div>
-</div>
-
-<div class="filter-bar mb-4">
-    <form method="get" class="row g-2 align-items-center">
-        <div class="col-auto">
-            <label class="col-form-label" for="UserName">User</label>
-        </div>
-        <div class="col-auto">
-            <select class="form-select" id="UserName" name="UserName" onchange="this.form.submit()">
-                <option value="">All users</option>
-                @foreach (var user in Model.KnownUsers)
-                {
-                    <option value="@user" selected="@(user == Model.UserName)">@user</option>
-                }
-            </select>
-        </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="DeviceId">Device</label>
-        </div>
-        <div class="col-auto">
-            <select class="form-select" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
-                <option value="">All devices</option>
-                @foreach (var device in Model.KnownDevices)
-                {
-                    <option value="@device.DeviceId" selected="@(device.DeviceId == Model.DeviceId)">@device.MachineName</option>
-                }
-            </select>
-        </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="FromDate">From</label>
-        </div>
-        <div class="col-auto">
-            <input type="date" class="form-control" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
-        </div>
-        <div class="col-auto">
-            <label class="col-form-label" for="ToDate">To</label>
-        </div>
-        <div class="col-auto">
-            <input type="date" class="form-control" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
-        </div>
-        <div class="col-auto btn-group" role="group" aria-label="Quick date range">
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(0)">Today</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(6)">Last 7 days</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(29)">Last 30 days</button>
-        </div>
-    </form>
-</div>
-
-<div class="kpi-row mb-4">
-    <div class="kpi-card">
-        <div class="kpi-icon">&#9200;</div>
-        <div>
-            <div class="kpi-label">Total Active Time</div>
-            <div class="kpi-value">@ActivityAggregation.FormatDuration(Model.TotalActiveSeconds)</div>
-            @Html.Raw(ChangeBadge(Model.ActiveChangePercent))
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icon">&#9749;</div>
-        <div>
-            <div class="kpi-label">Total Idle Time</div>
-            <div class="kpi-value">@ActivityAggregation.FormatDuration(Model.TotalIdleSeconds)</div>
-            @Html.Raw(ChangeBadge(Model.IdleChangePercent))
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icon">&#128200;</div>
-        <div>
-            <div class="kpi-label">Total Events</div>
-            <div class="kpi-value">@Model.TotalEvents</div>
-            @Html.Raw(ChangeBadge(Model.EventsChangePercent))
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icon">&#128421;</div>
-        <div>
-            <div class="kpi-label">Active Devices</div>
-            <div class="kpi-value">@Model.ActiveDeviceCount</div>
-            <span class="text-muted small">out of @Model.TotalDeviceCount devices</span>
-        </div>
-    </div>
-</div>
-
-@{
-    string StateBadge(string state) => state switch
-    {
-        "Reporting" => "<span class=\"badge-soft\" style=\"background:#DFF3EA;color:#1F7A5C\">Reporting</span>",
-        "Late" => "<span class=\"badge-soft\" style=\"background:#FCE8DF;color:#8A4B2A\">Late</span>",
-        _ => "<span class=\"badge-soft\" style=\"background:#F8DAD6;color:#C0392B\">Silent</span>",
+        0 => "Today",
+        6 => "Last 7 days",
+        29 => "Last 30 days",
+        _ when Model.FromDate == Model.ToDate && Model.FromDate is { } d => d.ToString("d MMM yyyy"),
+        _ => $"{Model.FromDate?.ToString("d MMM") ?? "Start"} – {Model.ToDate?.ToString("d MMM yyyy") ?? "now"}",
     };
+
+    var selectedDevice = Model.KnownDevices.FirstOrDefault(d => d.DeviceId == Model.DeviceId)?.MachineName;
+    var scopeLabel = $"{Model.UserName ?? "All users"} · {selectedDevice ?? "All devices"}";
+
+    var time = Model.Time;
+    double Share(double seconds) => time.TotalSeconds > 0 ? seconds / time.TotalSeconds * 100 : 0;
+
+    var buckets = new[]
+    {
+        (Key: "active", Label: "Active", Seconds: time.ActiveSeconds, Change: Model.ActiveChangePercent, GoodWhenUp: (bool?)true,
+            Definition: "Working in an app, screen unlocked"),
+        (Key: "idle", Label: "Idle", Seconds: time.IdleSeconds, Change: Model.IdleChangePercent, GoodWhenUp: (bool?)false,
+            Definition: "Unlocked, but no keyboard or mouse input for 5+ min"),
+        (Key: "locked", Label: "Screen locked", Seconds: time.LockedSeconds, Change: Model.LockedChangePercent, GoodWhenUp: (bool?)null,
+            Definition: "Locked or signed out; the user stepped away"),
+        (Key: "asleep", Label: "Asleep or off", Seconds: time.AsleepSeconds, Change: (double?)null, GoodWhenUp: (bool?)null,
+            Definition: "Machine asleep or shut down while the agent was tracking"),
+    };
+
+    // FormatDuration floors to whole minutes, which renders real-but-short time as "0m".
+    string Dur(double seconds) => seconds is > 0 and < 60 ? "<1m" : ActivityAggregation.FormatDuration(seconds);
 
     string Ago(TimeSpan t) =>
         t.TotalSeconds < 60 ? $"{(int)t.TotalSeconds}s ago"
@@ -121,135 +45,232 @@
         : $"{(int)t.TotalDays}d ago";
 }
 
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Agent status</strong>
-        <span class="text-muted small">Live &mdash; not affected by the date filter above. Counts cover the last hour.</span>
+<header class="dash-header">
+    <div>
+        <h1 class="page-heading mb-1">Dashboard</h1>
+        <p class="page-subtitle mb-0">@rangeLabel <span aria-hidden="true">·</span> @scopeLabel</p>
     </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead>
-                <tr>
-                    <th>Machine</th>
-                    <th>Last user</th>
-                    <th>Status</th>
-                    <th>Last reported</th>
-                    <th>Events (1h)</th>
-                    <th>App</th>
-                    <th>Idle</th>
-                    <th>Not capturing</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var agent in Model.AgentStatuses)
-                {
-                    <tr>
-                        <td>
-                            @if (agent.IsPinned)
-                            {
-                                <span class="text-danger" title="Pinned">&#128204;</span>
-                            }
-                            @agent.MachineName
-                        </td>
-                        <td>@agent.LastUserName</td>
-                        <td>@Html.Raw(StateBadge(agent.State))</td>
-                        <td title="@agent.LastSeenUtc.ToString("u")">@Ago(agent.SilentFor)</td>
-                        <td>@agent.EventsLastHour</td>
-                        <td>@agent.AppEventsLastHour</td>
-                        <td>@agent.IdleEventsLastHour</td>
-                        <td>
-                            @if (string.IsNullOrEmpty(agent.DisabledCaptures))
-                            {
-                                <span class="text-muted">&mdash;</span>
-                            }
-                            else
-                            {
-                                <span class="text-danger small">@agent.DisabledCaptures</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+</header>
+
+<form method="get" class="filter-bar dash-filters mb-4">
+    <div class="dash-field">
+        <label for="UserName">User</label>
+        <select class="form-select form-select-sm" id="UserName" name="UserName" onchange="this.form.submit()">
+            <option value="">All users</option>
+            @foreach (var user in Model.KnownUsers)
+            {
+                <option value="@user" selected="@(user == Model.UserName)">@user</option>
+            }
+        </select>
+    </div>
+    <div class="dash-field">
+        <label for="DeviceId">Device</label>
+        <select class="form-select form-select-sm" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
+            <option value="">All devices</option>
+            @foreach (var device in Model.KnownDevices)
+            {
+                <option value="@device.DeviceId" selected="@(device.DeviceId == Model.DeviceId)">@device.MachineName</option>
+            }
+        </select>
+    </div>
+    <div class="dash-field">
+        <label for="FromDate">From</label>
+        <input type="date" class="form-control form-control-sm" id="FromDate" name="FromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+    </div>
+    <div class="dash-field">
+        <label for="ToDate">To</label>
+        <input type="date" class="form-control form-control-sm" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+    </div>
+    <div class="dash-ranges" role="group" aria-label="Quick date range">
+        @foreach (var (days, label) in new[] { (0, "Today"), (6, "7 days"), (29, "30 days") })
+        {
+            <button type="button" class="dash-range@(activeRange == days ? " is-active" : "")" aria-pressed="@(activeRange == days ? "true" : "false")" onclick="setDateRange(@days)">@label</button>
+        }
+    </div>
+</form>
+
+<section class="card dash-time mb-4" aria-labelledby="time-heading">
+    <div class="dash-time-head">
+        <div>
+            <h2 id="time-heading" class="dash-section-title">Where the time went</h2>
+            <p class="dash-note mb-0">Each second is counted once. Where states overlap, asleep beats locked, locked beats idle, idle beats active.</p>
+        </div>
+        <dl class="dash-stats">
+            <div>
+                <dt>Tracked</dt>
+                <dd class="num">@Dur(time.TotalSeconds)</dd>
+            </div>
+            <div>
+                <dt>Events</dt>
+                <dd class="num">@Model.TotalEvents.ToString("N0")</dd>
+            </div>
+            <div>
+                <dt>Devices active</dt>
+                <dd class="num">@Model.ActiveDeviceCount <span class="dash-stats-of">of @Model.TotalDeviceCount</span></dd>
+            </div>
+        </dl>
+    </div>
+
+    @if (time.TotalSeconds <= 0)
+    {
+        <div class="dash-time-bar is-empty" aria-hidden="true"></div>
+        <p class="dash-note mt-2 mb-0">No tracked time in this period. Agents report within a minute of activity; check Agent status below if a machine should be here.</p>
+    }
+    else
+    {
+        <div class="dash-time-bar" role="img"
+             aria-label="@string.Join(", ", buckets.Select(b => $"{b.Label} {Dur(b.Seconds)} ({Share(b.Seconds):F0}%)"))">
+            @foreach (var b in buckets.Where(b => b.Seconds > 0))
+            {
+                <span class="dash-seg dash-seg-@b.Key" style="flex-basis:@Share(b.Seconds).ToString("F3", System.Globalization.CultureInfo.InvariantCulture)%"
+                      title="@b.Label: @Dur(b.Seconds)"></span>
+            }
+        </div>
+    }
+
+    <dl class="dash-legend">
+        @foreach (var b in buckets)
+        {
+            <div class="dash-legend-item">
+                <dt><span class="dash-swatch dash-seg-@b.Key" aria-hidden="true"></span>@b.Label</dt>
+                <dd class="dash-legend-value num">@Dur(b.Seconds)</dd>
+                <dd class="dash-legend-meta num">
+                    @Share(b.Seconds).ToString("F0")%
+                    @if (b.Change is { } change)
+                    {
+                        var rounded = Math.Round(change);
+                        var tone = rounded == 0 || b.GoodWhenUp is null ? "neutral" : (rounded > 0) == b.GoodWhenUp ? "good" : "bad";
+                        <span class="dash-change is-@tone" title="Compared with the previous period of the same length">
+                            @(rounded > 0 ? "↑" : rounded < 0 ? "↓" : "")@Math.Abs(rounded)%
+                        </span>
+                    }
+                    else if (b.Key != "asleep" && b.Seconds > 0 && Model.FromDate is not null && Model.ToDate is not null)
+                    {
+                        <span class="dash-change is-neutral" title="Nothing to compare in the previous period">new</span>
+                    }
+                </dd>
+                <dd class="dash-legend-def">@b.Definition</dd>
+            </div>
+        }
+    </dl>
+</section>
+
+<section class="card mb-4" aria-labelledby="agents-heading">
+    <div class="card-header dash-card-head">
+        <h2 id="agents-heading" class="dash-section-title">Agent status</h2>
+        <span class="dash-note">Live, ignores the date filter. Counts cover the last hour.</span>
     </div>
     @if (Model.AgentStatuses.Count == 0)
     {
         <div class="empty-state">
-            <div class="empty-state-icon">&#128225;</div>
-            <div>No agents have registered yet.</div>
+            <div>No agents have reported yet.</div>
+            <div class="small">A device appears here after its first successful sync with the server.</div>
         </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 dash-agents">
+                <thead>
+                    <tr>
+                        <th scope="col">Machine</th>
+                        <th scope="col">Last user</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Last reported</th>
+                        <th scope="col" class="text-end">Events</th>
+                        <th scope="col" class="text-end">App</th>
+                        <th scope="col" class="text-end">Idle</th>
+                        <th scope="col">Not capturing</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var agent in Model.AgentStatuses)
+                    {
+                        <tr>
+                            <td class="fw-semibold">
+                                @agent.MachineName
+                                @if (agent.IsPinned)
+                                {
+                                    <svg class="dash-pin" viewBox="0 0 16 16" aria-label="Pinned" role="img"><path d="M10.5 1.5 14.5 5.5 11.8 6.9 9.4 9.3 9.6 12.4 8.4 13.6 5.6 10.8 2 14.4M5.6 10.8 2.4 7.6 3.6 6.4 6.7 6.6 9.1 4.2Z" /></svg>
+                                }
+                            </td>
+                            <td>@agent.LastUserName</td>
+                            <td><span class="dash-state is-@agent.State.ToLowerInvariant()">@agent.State</span></td>
+                            <td class="num" title="@agent.LastSeenUtc.ToString("u")">@Ago(agent.SilentFor)</td>
+                            <td class="num text-end">@agent.EventsLastHour</td>
+                            <td class="num text-end">@agent.AppEventsLastHour</td>
+                            <td class="num text-end">@agent.IdleEventsLastHour</td>
+                            <td>
+                                @if (string.IsNullOrEmpty(agent.DisabledCaptures))
+                                {
+                                    <span class="text-muted" aria-label="Nothing disabled">–</span>
+                                }
+                                else
+                                {
+                                    <span class="dash-disabled">@agent.DisabledCaptures</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<div class="dash-ranked-grid">
+    @foreach (var (id, title, slices, empty) in new[]
+    {
+        ("apps", "Top applications", Model.TopApps, "No application time in this period."),
+        ("sites", "Top websites", Model.TopSites, "No website time in this period."),
+    })
+    {
+        var max = slices.Where(s => s.Label != "Other").Select(s => s.Seconds).DefaultIfEmpty(0).Max();
+        var total = slices.Sum(s => s.Seconds);
+        <section class="card" aria-labelledby="top-@id-heading">
+            <div class="card-header dash-card-head">
+                <h2 id="top-@id-heading" class="dash-section-title">@title</h2>
+                <span class="dash-note">Time in the foreground</span>
+            </div>
+            @if (slices.Count == 0)
+            {
+                <div class="empty-state"><div>@empty</div></div>
+            }
+            else
+            {
+                <ol class="dash-ranked">
+                    @foreach (var slice in slices)
+                    {
+                        var isOther = slice.Label == "Other";
+                        var width = max > 0 ? Math.Min(100, slice.Seconds / max * 100) : 0;
+                        <li class="@(isOther ? "is-other" : "")">
+                            <span class="dash-ranked-label" title="@slice.Label">@slice.Label</span>
+                            <span class="dash-ranked-value num">@Dur(slice.Seconds)</span>
+                            <span class="dash-ranked-share num">@((total > 0 ? slice.Seconds / total * 100 : 0).ToString("F0"))%</span>
+                            @if (!isOther)
+                            {
+                                <span class="dash-ranked-track" aria-hidden="true">
+                                    <span style="width:@width.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                                </span>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
     }
 </div>
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header"><strong>Top 5 Applications</strong></div>
-            <div class="card-body">
-                @if (Model.TopApps.Count == 0)
-                {
-                    <div class="empty-state">
-                        <div class="empty-state-icon">&#9633;&#9633;</div>
-                        <div>No application data for the selected period.</div>
-                    </div>
-                }
-                else
-                {
-                    <div style="height:240px">
-                        <canvas id="chart-top-apps"></canvas>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header"><strong>Top 5 Websites</strong></div>
-            <div class="card-body">
-                @if (Model.TopSites.Count == 0)
-                {
-                    <div class="empty-state">
-                        <div class="empty-state-icon">&#9633;&#9633;</div>
-                        <div>No website data for the selected period.</div>
-                    </div>
-                }
-                else
-                {
-                    <div style="height:240px">
-                        <canvas id="chart-top-sites"></canvas>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
-    <script src="~/lib/chartjs/chart.umd.js"></script>
     <script>
+        // UTC dates, matching the server's own "today" default.
         function setDateRange(daysBack) {
             const to = new Date();
-            const from = new Date();
-            from.setDate(to.getDate() - daysBack);
+            const from = new Date(to);
+            from.setUTCDate(to.getUTCDate() - daysBack);
             document.getElementById('FromDate').value = from.toISOString().slice(0, 10);
             document.getElementById('ToDate').value = to.toISOString().slice(0, 10);
             document.getElementById('FromDate').form.submit();
         }
-
-        const topApps = @Html.Raw(JsonSerializer.Serialize(Model.TopApps, ActivityAggregation.ChartJsonOptions));
-        const topSites = @Html.Raw(JsonSerializer.Serialize(Model.TopSites, ActivityAggregation.ChartJsonOptions));
-
-        function renderDonut(canvasId, slices) {
-            const el = document.getElementById(canvasId);
-            if (!el || !slices || slices.length === 0) return;
-            new Chart(el, {
-                type: 'doughnut',
-                data: { labels: slices.map(s => s.label), datasets: [{ data: slices.map(s => s.seconds) }] },
-                options: { maintainAspectRatio: false }
-            });
-        }
-
-        renderDonut('chart-top-apps', topApps);
-        renderDonut('chart-top-sites', topSites);
     </script>
 }
