@@ -322,6 +322,21 @@
                   Execute="immediate"
                   Return="ignore" />
 
+    <!--
+      schtasks /Create has no switches for these, and its defaults quietly defeat the watchdog on
+      laptops: "start only on AC power", "stop if the computer switches to battery", and a 72-hour
+      execution time limit. Observed on a Dell unplugged at 23%: the task logged 222 missed runs,
+      its last run ended 0x8007042B (killed), and the Agent stayed down with nothing on the
+      dashboard to say why. Set-ScheduledTask -Settings rewrites only the settings block, leaving
+      the /RU Users /IT principal CreateWatchdogTask registered untouched.
+      -ExecutionTimeLimit 0 (not [TimeSpan]::Zero) because MSI formatting would eat the brackets.
+    -->
+    <CustomAction Id="ConfigureWatchdogTask"
+                  Directory="SystemFolder"
+                  ExeCommand='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Set-ScheduledTask -TaskName &apos;TimeTracker Agent Watchdog&apos; -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0 -MultipleInstances IgnoreNew)&quot;'
+                  Execute="immediate"
+                  Return="ignore" />
+
     <CustomAction Id="RemoveWatchdogTask"
                   Directory="SystemFolder"
                   ExeCommand='schtasks.exe /Delete /TN &quot;TimeTracker Agent Watchdog&quot; /F'
@@ -358,6 +373,7 @@
       <Custom Action="GrantDataDirAccess" After="WriteAgentConfig" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="LaunchAgentAfterInstall" After="InstallFinalize" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="CreateWatchdogTask" After="LaunchAgentAfterInstall" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
+      <Custom Action="ConfigureWatchdogTask" After="CreateWatchdogTask" Condition="NOT REMOVE~=&quot;ALL&quot; OR REINSTALL" />
       <Custom Action="RemoveWatchdogTask" After="InstallInitialize" Condition="REMOVE~=&quot;ALL&quot; AND NOT REINSTALL AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
