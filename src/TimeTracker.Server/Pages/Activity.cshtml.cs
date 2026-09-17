@@ -224,7 +224,7 @@ public class ActivityModel : PageModel
             rows.AddRange(await appUsage.OrderByDescending(e => e.StartedAtUtc).Take(perTypeLimit)
                 .Select(e => new ActivityRow(
                     "AppUsage", e.UserName, e.DeviceId, e.StartedAtUtc,
-                    $"{e.ProcessName} - {e.WindowTitle}", e.DurationSeconds, null))
+                    $"{e.ProcessName} - {e.WindowTitle}", e.DurationSeconds, null, null))
                 .ToListAsync(cancellationToken));
         }
 
@@ -233,7 +233,7 @@ public class ActivityModel : PageModel
             rows.AddRange(await urlVisits.OrderByDescending(e => e.StartedAtUtc).Take(perTypeLimit)
                 .Select(e => new ActivityRow(
                     "UrlVisit", e.UserName, e.DeviceId, e.StartedAtUtc,
-                    $"{e.Browser}: {e.PageTitle}", e.DurationSeconds, null))
+                    $"{e.Browser}: {e.PageTitle}", e.DurationSeconds, null, null))
                 .ToListAsync(cancellationToken));
         }
 
@@ -263,7 +263,7 @@ public class ActivityModel : PageModel
 
             rows.AddRange(spans.OrderByDescending(x => x.Start).Take(perTypeLimit).Select(x => new ActivityRow(
                 "Idle", x.UserName, x.DeviceId, x.Start,
-                $"No keyboard or mouse input (counts as idle after {x.Threshold / 60} min)", (x.End - x.Start).TotalSeconds, null)));
+                $"No keyboard or mouse input (counts as idle after {(x.Threshold % 60 == 0 ? $"{x.Threshold / 60} min" : $"{x.Threshold}s")})", (x.End - x.Start).TotalSeconds, null)));
         }
 
         if (includedTypes.Contains("SessionBreak"))
@@ -272,9 +272,10 @@ public class ActivityModel : PageModel
                 .ToListAsync(cancellationToken);
             rows.AddRange(breakEntities.Select(e => new ActivityRow(
                 "SessionBreak", e.UserName, e.DeviceId, e.BreakStartUtc,
-                DescribeBreak(e.Reason, e.EndReason),
+                DescribeBreak(e.Reason, e.EndReason, e.IdleSecondsAtStart),
                 e.BreakEndUtc == null ? null : (e.BreakEndUtc.Value - e.BreakStartUtc).TotalSeconds,
-                null)));
+                null,
+                e.BreakEndUtc)));
         }
 
         if (includedTypes.Contains("Screenshot"))
@@ -282,21 +283,27 @@ public class ActivityModel : PageModel
             rows.AddRange(await screenshots.OrderByDescending(e => e.CapturedAtUtc).Take(perTypeLimit)
                 .Select(e => new ActivityRow(
                     "Screenshot", e.UserName, e.DeviceId, e.CapturedAtUtc,
-                    $"Monitor {e.MonitorIndex} ({e.WidthPx}x{e.HeightPx})", null, e.EventId))
+                    $"Monitor {e.MonitorIndex} ({e.WidthPx}x{e.HeightPx})", null, e.EventId, null))
                 .ToListAsync(cancellationToken));
         }
 
         Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(200).ToList();
     }
 
-    private static string DescribeBreak(SessionBreakReason reason, SessionBreakEndReason? endReason)
+    private static string DescribeBreak(SessionBreakReason reason, SessionBreakEndReason? endReason, double? idleSecondsAtStart)
     {
         var start = reason switch
         {
-            SessionBreakReason.Lock => "Screen locked",
+            // Rows recorded before lock kinds were told apart carry Lock with no idle measurement,
+            // so they can't honestly be called the user's own lock.
+            SessionBreakReason.Lock when idleSecondsAtStart is null => "Screen locked",
+            SessionBreakReason.Lock => "Locked by user",
+            SessionBreakReason.AutoLock when idleSecondsAtStart is { } idle =>
+                $"Locked automatically after {ActivityAggregation.FormatRowDuration(idle)} with no input",
+            SessionBreakReason.AutoLock => "Locked automatically",
             SessionBreakReason.Logoff => "Signed out",
             SessionBreakReason.MachineSleep => "Asleep",
-            SessionBreakReason.MachineShutdown => "Shut down",
+            SessionBreakReason.MachineShutdown => "Shut down or restarted",
             _ => reason.ToString(),
         };
 
@@ -320,7 +327,8 @@ public record ActivityRow(
     DateTimeOffset TimestampUtc,
     string Details,
     double? DurationSeconds,
-    Guid? ScreenshotId);
+    Guid? ScreenshotId,
+    DateTimeOffset? EndUtc = null);
 
 public record DeviceSummary(
     Guid DeviceId,

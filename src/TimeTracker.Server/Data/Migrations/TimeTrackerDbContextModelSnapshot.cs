@@ -301,6 +301,9 @@ namespace TimeTracker.Server.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("ScreenshotIntervalMinutes")
+                        .HasColumnType("integer");
+
                     b.HasKey("DeviceId");
 
                     b.ToTable("Devices");
@@ -445,6 +448,9 @@ namespace TimeTracker.Server.Data.Migrations
 
                     b.Property<int?>("EndReason")
                         .HasColumnType("integer");
+
+                    b.Property<double?>("IdleSecondsAtStart")
+                        .HasColumnType("double precision");
 
                     b.Property<int>("Reason")
                         .HasColumnType("integer");

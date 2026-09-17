@@ -30,7 +30,7 @@
         (Key: "idle", Label: "Idle", Seconds: time.IdleSeconds, Change: Model.IdleChangePercent, GoodWhenUp: (bool?)false,
             Definition: "Unlocked, but no keyboard or mouse input for 5+ min"),
         (Key: "locked", Label: "Screen locked", Seconds: time.LockedSeconds, Change: Model.LockedChangePercent, GoodWhenUp: (bool?)null,
-            Definition: "Locked or signed out; the user stepped away"),
+            Definition: "Locked by the user or automatically, or signed out"),
         (Key: "asleep", Label: "Asleep or off", Seconds: time.AsleepSeconds, Change: (double?)null, GoodWhenUp: (bool?)null,
             Definition: "Machine asleep or shut down while the agent was tracking"),
     };

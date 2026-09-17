@@ -5,7 +5,7 @@
 }
 
 <h1 class="page-heading">Devices</h1>
-<p class="page-subtitle">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them per-machine as needed.</p>
+<p class="page-subtitle">Turn off event types a machine shouldn't report. Screenshots are the heaviest to store &mdash; disable them, or capture them less often, per machine. Changes reach the Agent within 5 minutes.</p>
 
 @* Forms live outside the table: a <form> cannot be nested inside <tr>/<td> and still post
    reliably, so each row's controls reference one of these by id via the form="" attribute. *@
@@ -37,6 +37,7 @@
             <th>Idle</th>
             <th>Session breaks</th>
             <th>Screenshots</th>
+            <th title="How often the Agent captures a screenshot. Takes effect within 5 minutes, no reinstall needed.">Screenshot every</th>
             <th></th>
         </tr>
     </thead>
@@ -96,6 +97,18 @@
                                checked="@device.CaptureScreenshots" />
                     </div>
                     <input form="@formId" type="hidden" name="captureScreenshots" value="false" />
+                </td>
+                <td>
+                    <select form="@formId" class="form-select form-select-sm" style="width:auto"
+                            name="screenshotIntervalMinutes" aria-label="Screenshot frequency for @device.MachineName">
+                        @foreach (var minutes in TimeTracker.Shared.Devices.DeviceCapturePolicyDto.ScreenshotIntervalChoices
+                            .Append(device.ScreenshotIntervalMinutes).Distinct().Order())
+                        {
+                            <option value="@minutes" selected="@(minutes == device.ScreenshotIntervalMinutes)">
+                                Every @(minutes >= 60 && minutes % 60 == 0 ? $"{minutes / 60} h" : $"{minutes} min")
+                            </option>
+                        }
+                    </select>
                 </td>
                 <td class="text-nowrap">
                     <button form="@formId" type="submit" class="btn btn-sm btn-primary">Save</button>

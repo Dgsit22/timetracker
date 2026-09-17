@@ -51,6 +51,13 @@ public class SessionBreakEvent
     public DateTimeOffset? BreakEndUtc { get; set; }
     public SessionBreakReason Reason { get; set; }
     public SessionBreakEndReason? EndReason { get; set; }
+
+    /// <summary>
+    /// Seconds without input when the break began; tells a user's own lock from an automatic one.
+    /// Null for rows from Agents that didn't measure it.
+    /// </summary>
+    public double? IdleSecondsAtStart { get; set; }
+
     public DateTimeOffset ReceivedAtUtc { get; set; }
 }
 
@@ -101,6 +108,12 @@ public class Device
     public bool CaptureIdle { get; set; } = true;
     public bool CaptureSessionBreaks { get; set; } = true;
     public bool CaptureScreenshots { get; set; } = true;
+
+    /// <summary>
+    /// Minutes between screenshots, delivered to the Agent with the rest of the capture policy.
+    /// Screenshots dominate storage, so this is the main lever on how much a device costs to keep.
+    /// </summary>
+    public int ScreenshotIntervalMinutes { get; set; } = TimeTracker.Shared.Devices.DeviceCapturePolicyDto.DefaultScreenshotIntervalMinutes;
 }
 
 /// <summary>

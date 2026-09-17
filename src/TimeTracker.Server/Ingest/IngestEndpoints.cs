@@ -184,6 +184,7 @@ public static class IngestEndpoints
                     BreakEndUtc = dto.BreakEndUtc,
                     Reason = dto.Reason,
                     EndReason = dto.EndReason,
+                    IdleSecondsAtStart = dto.IdleSecondsAtStart,
                     ReceivedAtUtc = DateTimeOffset.UtcNow,
                 }, accepted, cancellationToken);
         }
@@ -367,7 +368,8 @@ public static class IngestEndpoints
         if (device is null)
         {
             // Unregistered devices get the permissive default until their first sync creates a row.
-            return Results.Ok(new DeviceCapturePolicyDto(true, true, true, true, true));
+            return Results.Ok(new DeviceCapturePolicyDto(
+                true, true, true, true, true, DeviceCapturePolicyDto.DefaultScreenshotIntervalMinutes));
         }
 
         return Results.Ok(new DeviceCapturePolicyDto(
@@ -375,7 +377,8 @@ public static class IngestEndpoints
             device.CaptureUrlVisits,
             device.CaptureIdle,
             device.CaptureSessionBreaks,
-            device.CaptureScreenshots));
+            device.CaptureScreenshots,
+            device.ScreenshotIntervalMinutes));
     }
 
     private static async Task<IResult> HandleGetScreenshotAsync(

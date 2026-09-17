@@ -27,6 +27,52 @@ internal static class NativeMethods
         public uint dwTime;
     }
 
+    [DllImport("wtsapi32.dll", SetLastError = true)]
+    private static extern bool WTSQuerySessionInformationW(
+        IntPtr hServer, int sessionId, int wtsInfoClass, out IntPtr buffer, out int bytesReturned);
+
+    [DllImport("wtsapi32.dll")]
+    private static extern void WTSFreeMemory(IntPtr memory);
+
+    private const int WtsCurrentSession = -1;
+    private const int WtsSessionInfoEx = 25;
+    private const int WtsSessionStateLock = 0;
+
+    /// <summary>
+    /// This session's Windows sign-in time and whether it is currently locked, or null if Windows
+    /// won't say. Reads WTSINFOEX_LEVEL1_W by offset: SessionFlags at 16, LogonTime (FILETIME) at
+    /// 168 - verified on Windows 11 against `query user` and the known lock state. The lock flag
+    /// is reported inverted on Windows 7 / Server 2008 R2, which this Agent doesn't target.
+    /// </summary>
+    internal static (DateTimeOffset LogonUtc, bool IsLocked)? GetSessionInfo()
+    {
+        if (!WTSQuerySessionInformationW(IntPtr.Zero, WtsCurrentSession, WtsSessionInfoEx, out var buffer, out var bytes))
+        {
+            return null;
+        }
+
+        try
+        {
+            if (bytes < 176 || Marshal.ReadInt32(buffer, 0) != 1)
+            {
+                return null;
+            }
+
+            var flags = Marshal.ReadInt32(buffer, 16);
+            var logonFileTime = Marshal.ReadInt64(buffer, 168);
+            if (logonFileTime <= 0)
+            {
+                return null;
+            }
+
+            return (DateTimeOffset.FromFileTime(logonFileTime).ToUniversalTime(), flags == WtsSessionStateLock);
+        }
+        finally
+        {
+            WTSFreeMemory(buffer);
+        }
+    }
+
     internal static string GetWindowTitle(IntPtr hWnd)
     {
         var length = GetWindowTextLength(hWnd);

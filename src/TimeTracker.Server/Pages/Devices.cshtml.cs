@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
+using TimeTracker.Shared.Devices;
 
 namespace TimeTracker.Server.Pages;
 
@@ -58,6 +59,7 @@ public class DevicesModel : PageModel
         bool captureIdle,
         bool captureSessionBreaks,
         bool captureScreenshots,
+        int screenshotIntervalMinutes,
         CancellationToken cancellationToken)
     {
         var device = await _db.Devices.FirstOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
@@ -68,6 +70,12 @@ public class DevicesModel : PageModel
             device.CaptureIdle = captureIdle;
             device.CaptureSessionBreaks = captureSessionBreaks;
             device.CaptureScreenshots = captureScreenshots;
+            // Clamped rather than rejected: the form only offers valid choices, so anything
+            // outside the range is a hand-crafted request, and a sane value beats an error page.
+            device.ScreenshotIntervalMinutes = Math.Clamp(
+                screenshotIntervalMinutes,
+                DeviceCapturePolicyDto.MinScreenshotIntervalMinutes,
+                DeviceCapturePolicyDto.MaxScreenshotIntervalMinutes);
             await _db.SaveChangesAsync(cancellationToken);
         }
 

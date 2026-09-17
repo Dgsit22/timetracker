@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
 using TimeTracker.Agent.Storage;
 using TimeTracker.Agent.Sync;
+using TimeTracker.Shared.Devices;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Tracking;
@@ -34,12 +35,27 @@ public class ScreenshotCapturer : BackgroundService
         _logger = logger;
     }
 
+    // How often the loop re-checks whether a capture is due. Short, so an admin shortening the
+    // interval from an hour to a minute doesn't wait out the rest of the old hour first.
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(15);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_options.ScreenshotIntervalSeconds));
+        using var timer = new PeriodicTimer(CheckInterval);
+        DateTimeOffset? lastCaptureUtc = null;
 
         do
         {
+            var now = DateTimeOffset.UtcNow;
+            if (lastCaptureUtc is { } last && now - last < CurrentInterval())
+            {
+                continue;
+            }
+
+            // Stamped before capturing, so a capture that throws still waits a full interval
+            // rather than retrying every 15 seconds.
+            lastCaptureUtc = now;
+
             try
             {
                 await CaptureAllAsync(stoppingToken);
@@ -50,6 +66,23 @@ public class ScreenshotCapturer : BackgroundService
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    /// <summary>
+    /// The server's per-device interval when it sends one, otherwise this Agent's own configured
+    /// ScreenshotIntervalSeconds - the fallback for a server that predates the setting.
+    /// </summary>
+    private TimeSpan CurrentInterval()
+    {
+        if (_policyCache.Current.ScreenshotIntervalMinutes is { } minutes)
+        {
+            return TimeSpan.FromMinutes(Math.Clamp(
+                minutes,
+                DeviceCapturePolicyDto.MinScreenshotIntervalMinutes,
+                DeviceCapturePolicyDto.MaxScreenshotIntervalMinutes));
+        }
+
+        return TimeSpan.FromSeconds(Math.Max(60, _options.ScreenshotIntervalSeconds));
     }
 
     private async Task CaptureAllAsync(CancellationToken cancellationToken)

@@ -1170,6 +1170,12 @@ a {
   overflow-wrap: anywhere;
 }
 
+.act-until {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
 .act-kind {
   display: inline-flex;
   align-items: center;

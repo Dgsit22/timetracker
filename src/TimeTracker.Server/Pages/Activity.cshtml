@@ -199,7 +199,13 @@ else
                         <tr>
                             <td class="num text-nowrap" data-utc="@row.TimestampUtc.ToString("o")" data-utc-format="datetime-s">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td class="text-nowrap"><span class="act-kind is-@row.Kind.ToLowerInvariant()">@typeLabels[row.Kind]</span></td>
-                            <td class="act-details">@row.Details</td>
+                            <td class="act-details">
+                                @row.Details
+                                @if (row.EndUtc is { } endUtc)
+                                {
+                                    <span class="act-until">until <span class="num" data-utc="@endUtc.ToString("o")" data-utc-format="datetime">@endUtc.ToString("yyyy-MM-dd HH:mm")</span></span>
+                                }
+                            </td>
                             <td class="num text-end text-nowrap">@(row.DurationSeconds is { } d ? ActivityAggregation.FormatRowDuration(d) : "")</td>
                             <td class="text-nowrap">@row.UserName</td>
                             <td class="text-nowrap" title="@row.DeviceId">@(deviceNames.GetValueOrDefault(row.DeviceId) ?? row.DeviceId.ToString()[..8])</td>
