@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "createdAt": "2026-09-18T09:51:03.864Z",
+        "reason": "Claude: clock second-hand tick recoil, literal mechanical motion on .clock-hand--second only; all other easing on this page is exponential ease-out"
+      }
+    ]
+  }
+}
