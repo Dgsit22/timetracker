@@ -1,0 +1,499 @@
+/* ==========================================================================
+   Login — daybreak scene
+   A layered parallax composition: the clock rises as the sun, workers run the
+   ridge below it, and the form sits in daylight glass over the top. Layer
+   depths are declared in the markup (data-depth) and driven by login-scene.js.
+   Everything here extends the tokens in site.css; no new brand colors.
+   ========================================================================== */
+
+.auth-body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.login-page {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  isolation: isolate;
+
+  /* Browser surfaces theming - these ship with defaults belonging to no design
+     system, so they are set from the palette like any other element. */
+  caret-color: var(--color-accent-2);
+  scrollbar-color: var(--color-accent-1) transparent;
+}
+
+.login-page ::selection {
+  background: var(--color-accent-1);
+  color: var(--color-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Scene
+   -------------------------------------------------------------------------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      #FFFCF9 0%,
+      #FEF4EC 30%,
+      #FDE7DA 54%,
+      #FCD3BC 74%,
+      #FBBF9F 90%,
+      #F9B294 100%
+    );
+}
+
+.scene-layer {
+  position: absolute;
+  inset: -6% -6% -6% -6%;
+  width: 112%;
+  height: 112%;
+  will-change: transform;
+  /* Parallax writes --px/--py; --adjust stays free for breakpoint framing, so the two
+     never overwrite each other the way an inline transform would. */
+  transform: translate3d(var(--px, 0px), var(--py, 0px), 0) var(--adjust, translate(0));
+}
+
+.scene-layer svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The sun sits high-left of the card so the form never covers the clock face. */
+.scene-sun {
+  opacity: 0.96;
+}
+
+.sun-glow {
+  animation: sun-breathe 14s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes sun-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.78; }
+}
+
+/* Hands are positioned by JS from the viewer's own clock. The transition makes
+   the minute and hour hands glide when the page sets them; the second hand
+   gets its own, shorter easing so each tick lands crisply. */
+.clock-hand {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clock-hand--second {
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --------------------------------------------------------------------------
+   Card
+   -------------------------------------------------------------------------- */
+
+.login-shell {
+  grid-row: 1;
+  align-self: center;
+  width: min(27rem, calc(100vw - 2rem));
+  padding: 3.5rem 0 1rem;
+}
+
+.login-card {
+  position: relative;
+  padding: 2.25rem 2rem 1.75rem;
+  border-radius: 24px;
+  background: rgba(255, 253, 251, 0.86);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 32px 64px -32px rgba(1, 50, 55, 0.45),
+    0 8px 20px -12px rgba(1, 50, 55, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  animation: card-rise 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.login-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--color-ink);
+}
+
+.login-mark svg {
+  display: block;
+  flex: none;
+}
+
+.login-mark span {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login-title {
+  margin: 1.5rem 0 0.375rem;
+  font-size: 1.75rem;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+.login-lede {
+  margin: 0 0 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  text-wrap: pretty;
+}
+
+/* --------------------------------------------------------------------------
+   Fields
+   -------------------------------------------------------------------------- */
+
+.field + .field {
+  margin-top: 1rem;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-ink);
+}
+
+.field-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-input svg {
+  position: absolute;
+  left: 0.875rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.login-card .form-control {
+  height: 3rem;
+  padding: 0 0.875rem 0 2.75rem;
+  font-size: 0.9375rem;
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 2px rgba(1, 50, 55, 0.04);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+/* Room for the reveal button so a long password never slides under it. */
+.login-card .form-control[data-password-input] {
+  padding-right: 2.875rem;
+}
+
+.login-card .form-control::placeholder {
+  /* Tinted from the surface hue rather than gray, and dark enough to read. */
+  color: #8A9997;
+}
+
+.login-card .form-control:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.login-card .form-control:focus {
+  outline: none;
+  background: #FFFFFF;
+  border-color: var(--color-accent-2);
+  box-shadow: 0 0 0 3px rgba(254, 151, 156, 0.38);
+}
+
+.login-card .form-control:focus + svg,
+.field-input:focus-within svg {
+  color: var(--color-ink);
+}
+
+.field-toggle {
+  position: absolute;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.field-toggle:hover {
+  color: var(--color-ink);
+  background: rgba(1, 50, 55, 0.06);
+}
+
+.field-toggle:focus-visible {
+  outline: none;
+  color: var(--color-ink);
+  box-shadow: 0 0 0 3px rgba(254, 151, 156, 0.38);
+}
+
+.field-toggle svg {
+  position: static;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Submit
+   -------------------------------------------------------------------------- */
+
+.login-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 3rem;
+  margin-top: 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  background: var(--color-accent-1);
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 20px -10px rgba(1, 50, 55, 0.4);
+  cursor: pointer;
+  transition: background-color 160ms ease, transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms ease;
+}
+
+.login-submit:hover {
+  background: var(--color-accent-2);
+  box-shadow: 0 14px 26px -12px rgba(1, 50, 55, 0.46);
+}
+
+.login-submit:active {
+  transform: translateY(1px);
+  box-shadow: 0 6px 14px -10px rgba(1, 50, 55, 0.4);
+}
+
+.login-submit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(1, 50, 55, 0.28), 0 10px 20px -10px rgba(1, 50, 55, 0.4);
+}
+
+.login-submit[data-busy="true"] {
+  cursor: progress;
+  background: var(--color-accent-2);
+}
+
+.login-submit[data-busy="true"] .login-submit-label::after {
+  content: "";
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-left: 0.5rem;
+  vertical-align: -2px;
+  border: 2px solid rgba(1, 50, 55, 0.3);
+  border-top-color: var(--color-ink);
+  border-radius: 50%;
+  animation: submit-spin 700ms linear infinite;
+}
+
+@keyframes submit-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   Errors
+   -------------------------------------------------------------------------- */
+
+/* The tag helper always renders the summary element; it only carries errors when
+   the POST failed, and ships an empty placeholder list otherwise. */
+.login-alert.validation-summary-valid {
+  display: none;
+}
+
+.login-alert {
+  display: flex;
+  gap: 0.625rem;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #8C2A1E;
+  background: rgba(192, 57, 43, 0.08);
+  border: 1px solid rgba(192, 57, 43, 0.22);
+  border-radius: var(--radius-md);
+}
+
+.login-alert svg {
+  flex: none;
+  margin-top: 0.0625rem;
+  color: var(--color-danger);
+}
+
+.login-alert ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8C2A1E;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+.login-card .form-control.input-validation-error {
+  border-color: rgba(192, 57, 43, 0.55);
+}
+
+.login-card .form-control.input-validation-error:focus {
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+
+.login-foot {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem 1.75rem;
+  font-size: 0.75rem;
+  color: #5A6B69;
+}
+
+.login-foot a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(1, 50, 55, 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 140ms ease;
+}
+
+.login-foot a:hover {
+  text-decoration-color: var(--color-ink);
+}
+
+.login-foot-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 40rem) {
+  .login-shell {
+    width: min(27rem, calc(100vw - 1.5rem));
+    padding-top: 2rem;
+  }
+
+  .login-card {
+    padding: 1.75rem 1.375rem 1.5rem;
+    border-radius: 20px;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+
+  /* The ridge crowd thins out rather than squashing: at this width the runners
+     would otherwise overlap into an unreadable mass behind the card. */
+  .runner--trailing {
+    display: none;
+  }
+
+  /* `slice` crops a 16:9 composition to a narrow central band on a phone, which
+     would leave the clock off-screen entirely. Pull it back into frame and sit it
+     above the card rather than beside it. */
+  .scene-sun {
+    --adjust: translate(-46%, -9%) scale(0.86);
+  }
+
+  .scene-motes {
+    --adjust: translate(-12%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The breakpoint framing above is layout, not motion, so it must survive the
+     transform reset further down. */
+  .scene-layer {
+    --px: 0px;
+    --py: 0px;
+  }
+}
+
+@media (max-height: 34rem) {
+  .login-shell {
+    padding-top: 1.25rem;
+  }
+
+  .login-card {
+    padding: 1.5rem 1.375rem 1.25rem;
+  }
+
+  .login-title {
+    margin-top: 1rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion: the scene still renders, it just stops responding to the
+   pointer and stops easing. The clock keeps telling the right time.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card,
+  .sun-glow {
+    animation: none;
+  }
+
+  .clock-hand,
+  .login-submit,
+  .login-card .form-control {
+    transition: none;
+  }
+}

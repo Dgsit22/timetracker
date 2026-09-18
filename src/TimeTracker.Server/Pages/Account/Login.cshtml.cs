@@ -43,7 +43,21 @@ public class LoginModel : PageModel
             return LocalRedirect(returnUrl);
         }
 
-        ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+        // Lockout is on (5 failures, 5 minutes by Identity's defaults), and without its own
+        // message a locked-out account keeps being told its correct password is wrong.
+        if (result.IsLockedOut)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                "Too many failed attempts. Wait a few minutes, then try again.");
+            return Page();
+        }
+
+        // Deliberately does not say which of the two was wrong - that would confirm whether an
+        // account exists to anyone who can reach the login page.
+        ModelState.AddModelError(
+            string.Empty,
+            "That email and password do not match. Check both and try again.");
         return Page();
     }
 
