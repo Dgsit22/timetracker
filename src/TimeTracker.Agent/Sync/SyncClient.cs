@@ -21,11 +21,18 @@ public class SyncClient : BackgroundService
     private static readonly string AgentVersion =
         Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
 
+    // A quiet machine can legitimately have no app switches, idle transitions, screenshots, or
+    // session breaks for a long time. Still check in periodically so the server can distinguish
+    // a healthy-but-quiet Agent from one that is offline. This is a device-health signal only;
+    // an empty batch never creates activity records.
+    private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromHours(1);
+
     private readonly IEventStore _store;
     private readonly DeviceIdentity _deviceIdentity;
     private readonly AgentOptions _options;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<SyncClient> _logger;
+    private DateTimeOffset? _lastHeartbeatUtc;
 
     public SyncClient(
         IEventStore store,
@@ -62,7 +69,10 @@ public class SyncClient : BackgroundService
     private async Task SyncOnceAsync(CancellationToken cancellationToken)
     {
         var batch = await _store.GetPendingBatchAsync(_options.SyncBatchSize, cancellationToken);
-        if (batch.IsEmpty)
+        var now = DateTimeOffset.UtcNow;
+        var isHeartbeatDue = _lastHeartbeatUtc is null || now - _lastHeartbeatUtc >= HeartbeatInterval;
+
+        if (batch.IsEmpty && !isHeartbeatDue)
         {
             return;
         }
@@ -72,7 +82,7 @@ public class SyncClient : BackgroundService
             AgentVersion,
             Environment.UserName,
             Environment.MachineName,
-            DateTimeOffset.UtcNow,
+            now,
             batch.AppUsageEvents,
             batch.IdlePeriods,
             batch.UrlVisits,
@@ -111,6 +121,11 @@ public class SyncClient : BackgroundService
             return;
         }
 
+        // The endpoint updates Device.LastSeenUtc before processing the batch. Record the
+        // successful check-in only after a 2xx response, so a failed heartbeat retries on the
+        // normal sync cadence instead of leaving the server stale for another hour.
+        _lastHeartbeatUtc = now;
+
         var result = await response.Content.ReadFromJsonAsync<SyncBatchResponse>(cancellationToken: cancellationToken);
         if (result is null)
         {
@@ -125,8 +140,15 @@ public class SyncClient : BackgroundService
         var toRemove = result.AcceptedEventIds.Concat(result.Rejected.Select(r => r.EventId));
         await _store.RemoveEventsAsync(toRemove, cancellationToken);
 
-        _logger.LogInformation(
-            "Synced batch: {Accepted} accepted, {Rejected} rejected",
-            result.AcceptedEventIds.Count, result.Rejected.Count);
+        if (batch.IsEmpty)
+        {
+            _logger.LogInformation("Sent hourly agent heartbeat");
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Synced batch: {Accepted} accepted, {Rejected} rejected",
+                result.AcceptedEventIds.Count, result.Rejected.Count);
+        }
     }
 }
