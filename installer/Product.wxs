@@ -194,19 +194,21 @@
       reads it back from there and deletes it - see InstallTimeConfig.cs for the full
       writeup of why CustomActionData doesn't work here.
 
-      StageAgentConfig targets cmd.exe rather than "[#AgentExe]", even though it's
+      StageAgentConfig targets PowerShell rather than "[#AgentExe]", even though it's
       staging data *for* the Agent exe: "After InstallFiles" only orders it after
       InstallFiles in the sequence table, but InstallFiles is itself deferred, so at the
       point this immediate action actually runs, InstallFiles has only been *scheduled*
-      into the execution script, not actually run yet - the exe isn't on disk. cmd.exe
-      always is (verified: targeting "[#AgentExe]" here fails instantly with Error 1721,
-      "program required for this install to complete could not be run"). The `^` before
-      the pipe escapes it from cmd's own parser, which would otherwise treat an
-      unescaped `|` as a real pipe rather than a literal character to write out.
+      into the execution script, not actually run yet - the exe isn't on disk. PowerShell
+      is built into supported Windows installations, and treats the pipe as ordinary text
+      inside its quoted string. This avoids the cmd.exe escaped-pipe action which can remain
+      running indefinitely during setup. ExeCommand is MSI Formatted text, so the literal
+      brackets of the .NET type name must be escaped as [\[] and [\]] - unescaped,
+      "[System.IO.File]" is treated as a (blank) property reference, PowerShell receives
+      "::WriteAllText(...)", exits 1, and the install fails with Error 1722.
 
       Same reasoning rules out Directory="INSTALLFOLDER" as this CA's working directory:
       CreateFolders (which makes it) is deferred too, so INSTALLFOLDER doesn't exist yet
-      either at this point (confirmed: with Directory="INSTALLFOLDER", even the cmd.exe
+      either at this point (confirmed: with Directory="INSTALLFOLDER", even the shell
       version above still failed with the same instant Error 1721 - CreateProcess fails
       outright if the working directory doesn't exist, regardless of whether the target
       program itself is found). SystemFolder (C:\Windows\System32) is populated by the
@@ -214,7 +216,7 @@
     -->
     <CustomAction Id="StageAgentConfig"
                   Directory="SystemFolder"
-                  ExeCommand='cmd.exe /c &quot;echo [SERVERURL]^|[AGENTAPIKEY]&gt;C:\Windows\Temp\timetracker-agent-stage.tmp&quot;'
+                  ExeCommand='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;[\[]System.IO.File[\]]::WriteAllText(&apos;C:\Windows\Temp\timetracker-agent-stage.tmp&apos;, &apos;[SERVERURL]|[AGENTAPIKEY]&apos;)&quot;'
                   Execute="immediate"
                   Return="check" />
 
