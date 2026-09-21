@@ -14,13 +14,14 @@ namespace TimeTracker.Agent;
 public sealed class AgentTrayIcon : IDisposable
 {
     private readonly NotifyIcon _notifyIcon;
+    private readonly ContextMenuStrip _menu;
     private readonly string _serverUrl;
 
     public AgentTrayIcon(string serverUrl)
     {
         _serverUrl = serverUrl;
 
-        var menu = new ContextMenuStrip();
+        var menu = _menu = new ContextMenuStrip();
         menu.Items.Add("Settings...", null, OnSettings);
         menu.Items.Add("Test Connection", null, OnTestConnection);
         menu.Items.Add("Open Server", null, OnOpenServer);
@@ -45,15 +46,93 @@ public sealed class AgentTrayIcon : IDisposable
     // loop inside that the same way any modal Win32 dialog would. Created lazily, once, on
     // first use rather than eagerly at startup, since most sessions never open Settings.
     private System.Windows.Application? _wpfApplication;
+    private SettingsWindow? _settingsWindow;
 
     private void OnSettings(object? sender, EventArgs e)
     {
-        _wpfApplication ??= new System.Windows.Application();
-        new SettingsWindow().ShowDialog();
+        // Deferred rather than opened inline. This runs from a ToolStripMenuItem click, and the
+        // context menu still holds mouse capture at that point: a modal window opened underneath
+        // it never receives input, so the Agent looks frozen with no way back. Posting through
+        // the menu's own control lets it finish closing and release capture first.
+        // BeginInvoke needs a created handle. The menu always has one by the time one of its
+        // items is clicked, but falling back keeps this from throwing if that ever stops holding.
+        if (_menu.IsHandleCreated)
+        {
+            _menu.BeginInvoke(new Action(ShowSettings));
+        }
+        else
+        {
+            ShowSettings();
+        }
     }
 
-    private void OnTestConnection(object? sender, EventArgs e)
-        => ConnectionTest.RunFromInstalledConfigAsync().GetAwaiter().GetResult();
+    private void ShowSettings()
+    {
+        try
+        {
+            if (_wpfApplication is null)
+            {
+                _wpfApplication = System.Windows.Application.Current ?? new System.Windows.Application();
+
+                // Without this the default OnLastWindowClose applies, and closing Settings once
+                // calls Application.Shutdown(), which shuts down this thread's WPF dispatcher for
+                // good. The tray kept working, so the Agent looked alive, but every later attempt
+                // to open Settings hung or threw on a dead dispatcher. The WinForms loop below
+                // owns this thread's lifetime; WPF must not end it.
+                _wpfApplication.ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
+            }
+
+            // A second ShowDialog while one is already open nests another dispatcher frame, and
+            // the older window is the one holding input - indistinguishable from a hang.
+            if (_settingsWindow is not null)
+            {
+                _settingsWindow.Activate();
+                return;
+            }
+
+            _settingsWindow = new SettingsWindow();
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+
+            // Opened from the notification area, so there is no parent window to come up in front
+            // of: without this the window can arrive behind whatever is focused, which reads as
+            // nothing having happened.
+            _settingsWindow.Topmost = true;
+            _settingsWindow.Loaded += (_, _) =>
+            {
+                _settingsWindow!.Activate();
+                _settingsWindow.Topmost = false;
+            };
+
+            _settingsWindow.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            // An exception escaping here would surface as the WinForms unhandled-exception dialog,
+            // which can itself open behind other windows - another silent freeze. Say what broke.
+            _settingsWindow = null;
+            MessageBox.Show(
+                $"Could not open Settings.\n\n{ex.Message}",
+                "TimeTracker Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    // async void, not a blocking GetResult(): this handler runs on the WinForms UI thread, which
+    // carries a SynchronizationContext. RunCoreAsync's awaits post their continuations back to
+    // that thread, so blocking it here deadlocked the Agent permanently the first time anyone
+    // used this menu item - the tray stopped responding and only Task Manager could clear it.
+    private async void OnTestConnection(object? sender, EventArgs e)
+    {
+        try
+        {
+            await ConnectionTest.RunFromInstalledConfigAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not run the connection test.\n\n{ex.Message}",
+                "TimeTracker Agent", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
 
     private void OnOpenServer(object? sender, EventArgs e)
     {
