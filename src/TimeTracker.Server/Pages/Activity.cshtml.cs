@@ -304,6 +304,13 @@ public class ActivityModel : PageModel
         var topAppsByDevice = appTotals.GroupBy(x => x.DeviceId)
             .ToDictionary(g => g.Key, g => ActivityAggregation.BuildTopSlices(g.Select(x => (x.ProcessName, x.Total))));
 
+        // The same totals ranked in full, for the panels' "View all". Capped because a busy
+        // machine can touch hundreds of executables in a week and an unbounded list inside a
+        // card is not a feature.
+        var allAppsByDevice = appTotals.GroupBy(x => x.DeviceId)
+            .ToDictionary(g => g.Key, g => ActivityAggregation.RankAll(
+                g.Select(x => (x.ProcessName, x.Total))));
+
         // Host extraction has no SQL translation, so pull narrow (device, url, duration) tuples and
         // group client-side - no heavier than the existing table's own per-row UrlVisit projection.
         var urlTuples = await summaryUrlVisits
@@ -314,6 +321,12 @@ public class ActivityModel : PageModel
             .Select(g => new { g.Key.DeviceId, g.Key.Host, Total = g.Sum(x => x.DurationSeconds) })
             .GroupBy(x => x.DeviceId)
             .ToDictionary(g => g.Key, g => ActivityAggregation.BuildTopSlices(g.Select(x => (x.Host, x.Total))));
+
+        var allSitesByDevice = urlTuples
+            .GroupBy(x => (x.DeviceId, Host: ActivityAggregation.GetUrlHost(x.Url)))
+            .Select(g => new { g.Key.DeviceId, g.Key.Host, Total = g.Sum(x => x.DurationSeconds) })
+            .GroupBy(x => x.DeviceId)
+            .ToDictionary(g => g.Key, g => ActivityAggregation.RankAll(g.Select(x => (x.Host, x.Total))));
 
         var devicesToSummarize = DeviceId is { } filterDeviceId
             ? KnownDevices.Where(d => d.DeviceId == filterDeviceId)
@@ -326,6 +339,8 @@ public class ActivityModel : PageModel
                 segmentsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<StateSegment>(),
                 topAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
                 topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
+                allAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
+                allSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
                 d.IsPinned,
                 d.LastSeenUtc))
             // Pinned first, so a machine being watched closely stays at the top even on a quiet
@@ -498,6 +513,8 @@ public record DeviceSummary(
     List<StateSegment> Segments,
     List<CategorySlice> TopApps,
     List<CategorySlice> TopSites,
+    List<CategorySlice> AllApps,
+    List<CategorySlice> AllSites,
     bool IsPinned,
     DateTimeOffset LastSeenUtc)
 {

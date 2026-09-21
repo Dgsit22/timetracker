@@ -249,6 +249,13 @@ else
                             Top applications
                         </h3>
                         <partial name="_RankedList" model="(summary.TopApps, noAppsText)" />
+                        @if (summary.AllApps.Count > summary.TopApps.Count)
+                        {
+                            <details class="act-viewall">
+                                <summary>View all @summary.AllApps.Count applications</summary>
+                                <partial name="_RankedList" model="(summary.AllApps, noAppsText)" />
+                            </details>
+                        }
                     </div>
                     <div class="act-panel">
                         <h3 class="act-subtitle">
@@ -260,6 +267,13 @@ else
                             Top websites
                         </h3>
                         <partial name="_RankedList" model="(summary.TopSites, noSitesText)" />
+                        @if (summary.AllSites.Count > summary.TopSites.Count)
+                        {
+                            <details class="act-viewall">
+                                <summary>View all @summary.AllSites.Count websites</summary>
+                                <partial name="_RankedList" model="(summary.AllSites, noSitesText)" />
+                            </details>
+                        }
                     </div>
                 </div>
             </div>

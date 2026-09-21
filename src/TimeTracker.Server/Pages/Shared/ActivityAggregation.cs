@@ -29,6 +29,17 @@ public static class ActivityAggregation
         return top;
     }
 
+    /// <summary>
+    /// The same ranking without the top-N rollup, for the panels' "View all". Capped rather than
+    /// unbounded: a week on a busy machine touches hundreds of executables, and a list that long
+    /// inside a card is noise, not detail.
+    /// </summary>
+    public static List<CategorySlice> RankAll(IEnumerable<(string Label, double Seconds)> items, int cap = 50) =>
+        items.OrderByDescending(x => x.Seconds)
+            .Take(cap)
+            .Select(x => new CategorySlice(x.Label, x.Seconds))
+            .ToList();
+
     // Whole-minute granularity, for aggregate totals (KPI cards, summary cards).
     public static string FormatDuration(double seconds)
     {
