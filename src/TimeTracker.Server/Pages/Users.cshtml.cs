@@ -22,6 +22,9 @@ public class UsersModel : PageModel
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
+    [TempData]
+    public string? StatusMessage { get; set; }
+
     public async Task OnGetAsync()
     {
         await LoadUsersAsync();
@@ -58,6 +61,40 @@ public class UsersModel : PageModel
             await LoadUsersAsync();
             return Page();
         }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Admin-set password. There is no mail server configured, so the usual emailed reset link
+    /// is not an option - without this, the only way to recover a forgotten password was to
+    /// delete the account and recreate it, which loses its roles with it.
+    ///
+    /// Goes through a reset token rather than a direct hash write so Identity applies its own
+    /// password rules and stamps the security stamp, which invalidates the user's existing
+    /// sessions the way a real password change should.
+    /// </summary>
+    public async Task<IActionResult> OnPostSetPasswordAsync(string userId, string newPassword)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            StatusMessage = "That user no longer exists.";
+            return RedirectToPage();
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            StatusMessage = "Enter a new password before saving.";
+            return RedirectToPage();
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+
+        StatusMessage = result.Succeeded
+            ? $"Password updated for {user.Email}. They will need to sign in again."
+            : string.Join(" ", result.Errors.Select(e => e.Description));
 
         return RedirectToPage();
     }

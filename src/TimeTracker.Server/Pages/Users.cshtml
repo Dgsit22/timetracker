@@ -7,6 +7,11 @@
 <h1 class="page-heading">Users</h1>
 <p class="page-subtitle">Admin console logins - separate from the tracked employees shown on Activity/Reports.</p>
 
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-info py-2">@Model.StatusMessage</div>
+}
+
 <div class="card mb-4">
     <div class="table-responsive">
         <table class="table table-sm table-hover mb-0">
@@ -31,6 +36,16 @@
                             }
                         </td>
                         <td>
+                            @* No mail server, so a forgotten password is recovered here rather
+                               than by an emailed link. Setting one signs that user out. *@
+                            <form method="post" asp-page-handler="SetPassword" class="d-inline-flex gap-1 align-items-center me-2"
+                                  onsubmit="return confirm('Set a new password for @user.Email? Their current sessions will end.');">
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="password" name="newPassword" class="form-control form-control-sm"
+                                       style="width: 11rem" placeholder="New password" autocomplete="new-password"
+                                       aria-label="New password for @user.Email" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Set</button>
+                            </form>
                             <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete @user.Email?');" class="d-inline">
                                 <input type="hidden" name="userId" value="@user.Id" />
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
