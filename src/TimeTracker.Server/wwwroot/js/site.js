@@ -70,6 +70,13 @@
         if (selector) {
             selector.value = zoneKey;
         }
+
+        // The Activity page's time-of-day window is evaluated server-side, and this choice lives
+        // only in localStorage, so the IANA id has to travel with the form for "09:00" to mean
+        // 09:00 in the zone on screen rather than 09:00 UTC.
+        document.querySelectorAll("[data-timezone-field]").forEach(function (field) {
+            field.value = zone.tz;
+        });
     }
 
     function setTimezone(zoneKey) {
@@ -81,6 +88,16 @@
 
         applyTimezone();
         document.dispatchEvent(new CustomEvent("tt-timezone-change"));
+
+        // A time-of-day window was filtered in the previous zone, so the totals on screen no
+        // longer mean what the inputs now say. Re-run the query rather than leave the two
+        // disagreeing - only when such a window is actually in play.
+        var zoneField = document.querySelector("[data-timezone-field]");
+        var windowStart = document.getElementById("TimeFrom");
+        var windowEnd = document.getElementById("TimeTo");
+        if (zoneField && windowStart && windowEnd && windowStart.value && windowEnd.value) {
+            zoneField.form.submit();
+        }
     }
 
     // zone() lets pages that draw time themselves (the Activity timeline) follow the same choice,

@@ -44,6 +44,26 @@ public class ActivityModel : PageModel
     [BindProperty(SupportsGet = true)]
     public DateOnly? ToDate { get; set; }
 
+    // Time-of-day window, applied to every day in the date range. Both must be set for it to do
+    // anything: half a window is an incomplete thought, not a filter.
+    [BindProperty(SupportsGet = true)]
+    public TimeOnly? TimeFrom { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public TimeOnly? TimeTo { get; set; }
+
+    // IANA id of the zone the window is expressed in, posted by the page from the same timezone
+    // choice the top bar uses (site.js keeps it in localStorage, so the server cannot know it
+    // otherwise). Times on this page are shown in that zone, so the window has to mean that zone.
+    [BindProperty(SupportsGet = true)]
+    public string? Zone { get; set; }
+
+    /// <summary>The resolved windows, or null when no complete window was given.</summary>
+    public IReadOnlyList<(DateTimeOffset Start, DateTimeOffset End)>? ActiveWindows { get; private set; }
+
+    /// <summary>What the view labels the time inputs with, e.g. "IST".</summary>
+    public string WindowZoneLabel { get; private set; } = "UTC";
+
     [BindProperty(SupportsGet = true)]
     public string[]? Types { get; set; }
 
@@ -57,6 +77,61 @@ public class ActivityModel : PageModel
     // query, so an export is the whole filtered range rather than only what is on screen.
     private int _perTypeLimit = 100;
     private int _rowCap = 200;
+
+    /// <summary>
+    /// Turns the posted window into concrete UTC intervals, one per day of the range, and records
+    /// the zone label the view shows beside the inputs. Returns null when there is nothing to
+    /// apply, which leaves every query exactly as it was before this filter existed.
+    /// </summary>
+    private IReadOnlyList<(DateTimeOffset Start, DateTimeOffset End)>? ResolveWindows()
+    {
+        var zone = ResolveZone();
+        WindowZoneLabel = ZoneLabel(zone);
+
+        if (TimeFrom is not { } timeFrom || TimeTo is not { } timeTo)
+        {
+            return null;
+        }
+
+        // The date range bounds which days the window repeats over. Both are defaulted to today on
+        // a bare load, so in practice this only guards a hand-written query string.
+        if (FromDate is not { } fromDate || ToDate is not { } toDate || toDate < fromDate)
+        {
+            return null;
+        }
+
+        // The window is expressed in the display zone, so a day at the edge of the UTC range can
+        // reach a few hours outside it - a day either side of the range covers every supported
+        // zone, and windows that fall outside simply match nothing.
+        return TimeWindows.Build(fromDate.AddDays(-1), toDate.AddDays(1), timeFrom, timeTo, zone);
+    }
+
+    private TimeZoneInfo ResolveZone()
+    {
+        if (string.IsNullOrWhiteSpace(Zone))
+        {
+            return TimeZoneInfo.Utc;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(Zone);
+        }
+        catch (Exception)
+        {
+            // An unknown id means a hand-edited query string or a container without tzdata.
+            // Falling back to UTC keeps the page working; the label says which zone was used.
+            return TimeZoneInfo.Utc;
+        }
+    }
+
+    private static string ZoneLabel(TimeZoneInfo zone) => zone.Id switch
+    {
+        "Asia/Kolkata" => "IST",
+        "America/New_York" => "EST",
+        "UTC" => "UTC",
+        _ => zone.Id,
+    };
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -113,6 +188,29 @@ public class ActivityModel : PageModel
         DateTimeOffset? fromUtc = FromDate is { } fd ? new DateTimeOffset(fd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : null;
         DateTimeOffset? toUtcExclusive = ToDate is { } td ? new DateTimeOffset(td.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).AddDays(1) : null;
 
+        // Resolve the time-of-day window before the range filters below, so every query can
+        // carry it. Needs both ends and a concrete date range: "every day" has to know which days.
+        var windows = ResolveWindows();
+        ActiveWindows = windows;
+
+        if (windows is not null)
+        {
+            // Events are matched by overlap, not by start time: an idle stretch running 08:40 to
+            // 10:20 belongs in a 09:00 window, and filtering on its start alone would drop it from
+            // the log while the totals below still counted the part inside. Screenshots are
+            // instants, so for them overlap and containment are the same test.
+            appUsage = appUsage.Where(TimeWindows.AnyWindow<AppUsageEvent>(
+                windows, (s, e) => x => x.StartedAtUtc < e && x.EndedAtUtc > s));
+            idle = idle.Where(TimeWindows.AnyWindow<IdlePeriodEvent>(
+                windows, (s, e) => x => x.StartedAtUtc < e && x.EndedAtUtc > s));
+            urlVisits = urlVisits.Where(TimeWindows.AnyWindow<UrlVisitEvent>(
+                windows, (s, e) => x => x.StartedAtUtc < e && x.EndedAtUtc > s));
+            breaks = breaks.Where(TimeWindows.AnyWindow<SessionBreakEvent>(
+                windows, (s, e) => x => x.BreakStartUtc < e && (x.BreakEndUtc == null || x.BreakEndUtc > s)));
+            screenshots = screenshots.Where(TimeWindows.AnyWindow<ScreenshotEvent>(
+                windows, (s, e) => x => x.CapturedAtUtc >= s && x.CapturedAtUtc < e));
+        }
+
         if (fromUtc is { } from)
         {
             appUsage = appUsage.Where(e => e.StartedAtUtc >= from);
@@ -143,6 +241,14 @@ public class ActivityModel : PageModel
             summaryUrlVisits = summaryUrlVisits.Where(e => e.DeviceId == summaryDeviceId);
         }
 
+        if (windows is not null)
+        {
+            summaryAppUsage = summaryAppUsage.Where(TimeWindows.AnyWindow<AppUsageEvent>(
+                windows, (s, e) => x => x.StartedAtUtc < e && x.EndedAtUtc > s));
+            summaryUrlVisits = summaryUrlVisits.Where(TimeWindows.AnyWindow<UrlVisitEvent>(
+                windows, (s, e) => x => x.StartedAtUtc < e && x.EndedAtUtc > s));
+        }
+
         if (fromUtc is { } summaryFrom)
         {
             summaryAppUsage = summaryAppUsage.Where(e => e.StartedAtUtc >= summaryFrom);
@@ -169,6 +275,16 @@ public class ActivityModel : PageModel
         var segmentsByDevice = TimeBreakdown.Resolve(intervals, TimelineFromUtc, TimelineToUtc.Value)
             .GroupBy(x => x.DeviceId)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        if (windows is not null)
+        {
+            // Clipping here covers both the totals below and the timeline the view renders from
+            // the same lists, so the drawn day shows only the window - the hours outside it fall
+            // back to the timeline's existing "Not tracked" gap styling with no JS change.
+            segmentsByDevice = segmentsByDevice.ToDictionary(
+                kv => kv.Key,
+                kv => TimeWindows.Clip(kv.Value, windows).ToList());
+        }
 
         TimeBreakdown TotalsInRange(Guid deviceId) => TimeBreakdown.Sum(
             (segmentsByDevice.GetValueOrDefault(deviceId) ?? new())

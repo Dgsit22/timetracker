@@ -98,11 +98,34 @@
             <label for="ToDate">To</label>
             <input type="date" class="form-control form-control-sm" id="ToDate" name="ToDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
         </div>
+        <div class="dash-field">
+            <label for="TimeFrom">Time from (<span class="act-window-zone">@Model.WindowZoneLabel</span>)</label>
+            <input type="time" class="form-control form-control-sm" id="TimeFrom" name="TimeFrom"
+                   value="@Model.TimeFrom?.ToString("HH:mm")" onchange="this.form.submit()" />
+        </div>
+        <div class="dash-field">
+            <label for="TimeTo">Time to</label>
+            <input type="time" class="form-control form-control-sm" id="TimeTo" name="TimeTo"
+                   value="@Model.TimeTo?.ToString("HH:mm")" onchange="this.form.submit()" />
+        </div>
+
+        @* Set by site.js from the same timezone choice the top bar uses - the window is read in
+           that zone, and the server has no other way to know which one is selected. *@
+        <input type="hidden" id="Zone" name="Zone" value="@Model.Zone" data-timezone-field />
+
         <div class="dash-ranges" role="group" aria-label="Quick date range">
             @foreach (var (days, label) in new[] { (0, "Today"), (6, "7 days"), (29, "30 days") })
             {
                 <button type="button" class="dash-range@(activeRange == days ? " is-active" : "")" aria-pressed="@(activeRange == days ? "true" : "false")" onclick="setDateRange(@days)">@label</button>
             }
+        </div>
+        <div class="dash-ranges" role="group" aria-label="Quick time window">
+            <button type="button" class="dash-range@(Model.ActiveWindows is not null ? "" : " is-active")"
+                    aria-pressed="@(Model.ActiveWindows is null ? "true" : "false")"
+                    onclick="setTimeWindow('', '')">All day</button>
+            <button type="button" class="dash-range@(Model.TimeFrom?.ToString("HH:mm") == "09:00" && Model.TimeTo?.ToString("HH:mm") == "18:00" ? " is-active" : "")"
+                    aria-pressed="@(Model.TimeFrom?.ToString("HH:mm") == "09:00" && Model.TimeTo?.ToString("HH:mm") == "18:00" ? "true" : "false")"
+                    onclick="setTimeWindow('09:00', '18:00')">9 - 6</button>
         </div>
     </div>
     <fieldset class="act-types">
@@ -273,6 +296,12 @@ else
             document.getElementById('FromDate').value = from.toISOString().slice(0, 10);
             document.getElementById('ToDate').value = to.toISOString().slice(0, 10);
             document.getElementById('FromDate').form.submit();
+        }
+
+        function setTimeWindow(from, to) {
+            document.getElementById('TimeFrom').value = from;
+            document.getElementById('TimeTo').value = to;
+            document.getElementById('TimeFrom').form.submit();
         }
 
         const timeline = @Html.Raw(JsonSerializer.Serialize(new
