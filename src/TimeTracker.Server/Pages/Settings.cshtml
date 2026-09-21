@@ -1,0 +1,197 @@
+@page
+@model SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-heading">Settings</h1>
+        <p class="page-subtitle">
+            How this server is configured, and what it is holding. These values come from the
+            server's <code>.env</code> and compose file, so they are shown here rather than edited.
+        </p>
+    </div>
+</header>
+
+<div class="set-grid">
+
+    <section class="card" aria-labelledby="set-retention">
+        <div class="card-header dash-card-head">
+            <h2 id="set-retention" class="dash-section-title">Data retention</h2>
+            <span class="dash-state @(Model.Retention.Enabled ? "is-reporting" : "is-silent")">
+                @(Model.Retention.Enabled ? "On" : "Off")
+            </span>
+        </div>
+        <dl class="set-list">
+            <div>
+                <dt>Screenshots kept</dt>
+                <dd class="num">@Model.Retention.ScreenshotDays days</dd>
+            </div>
+            <div>
+                <dt>Events kept</dt>
+                <dd class="num">@Model.Retention.EventDays days</dd>
+            </div>
+            <div>
+                <dt>Sweep runs</dt>
+                <dd class="num">every @Model.Retention.SweepIntervalHours h</dd>
+            </div>
+            <div>
+                <dt>Deleted per batch</dt>
+                <dd class="num">@Model.Retention.BatchSize.ToString("N0") rows</dd>
+            </div>
+        </dl>
+        <p class="set-note">
+            @if (Model.Retention.Enabled)
+            {
+                <text>
+                    Anything past these windows is deleted permanently on the next sweep. Change
+                    <code>RETENTION_SCREENSHOT_DAYS</code> and <code>RETENTION_EVENT_DAYS</code> in
+                    the server's <code>.env</code>, then <code>docker compose up -d</code>.
+                </text>
+            }
+            else
+            {
+                <text>
+                    Nothing is ever deleted. Screenshots are stored as bytes in the database, so the
+                    table below will grow for as long as agents keep reporting.
+                </text>
+            }
+        </p>
+    </section>
+
+    <section class="card" aria-labelledby="set-agents">
+        <div class="card-header dash-card-head">
+            <h2 id="set-agents" class="dash-section-title">Agent ingest</h2>
+            <span class="dash-state @(Model.AgentKeyConfigured ? "is-reporting" : "is-silent")">
+                @(Model.AgentKeyConfigured ? "Accepting" : "Refusing")
+            </span>
+        </div>
+        <dl class="set-list">
+            <div>
+                <dt>Shared API key</dt>
+                <dd>
+                    @if (Model.AgentKeyConfigured)
+                    {
+                        <span class="num">configured, @Model.AgentKeyLength characters</span>
+                    }
+                    else
+                    {
+                        <span class="set-warn">not set &mdash; every agent is being rejected</span>
+                    }
+                </dd>
+            </div>
+            <div>
+                <dt>Transport</dt>
+                <dd>
+                    @if (Model.RequestIsHttps)
+                    {
+                        <span>HTTPS</span>
+                    }
+                    else
+                    {
+                        <span class="set-warn">plain HTTP</span>
+                    }
+                </dd>
+            </div>
+            <div>
+                <dt>Devices enrolled</dt>
+                <dd class="num">@Model.DeviceCount</dd>
+            </div>
+            <div>
+                <dt>Reporting now</dt>
+                <dd class="num">@Model.ReportingDeviceCount of @Model.DeviceCount</dd>
+            </div>
+        </dl>
+        <p class="set-note">
+            An agent's <code>AGENTAPIKEY</code> must match this server's <code>AGENT_API_KEY</code>
+            exactly, or it syncs nothing and queues locally.
+            @if (!Model.RequestIsHttps)
+            {
+                <text>
+                    Over plain HTTP that key, and every admin session cookie, crosses the network in
+                    clear text.
+                </text>
+            }
+            <a asp-page="/Devices">See devices &rarr;</a>
+        </p>
+    </section>
+
+    <section class="card set-wide" aria-labelledby="set-storage">
+        <div class="card-header dash-card-head">
+            <h2 id="set-storage" class="dash-section-title">Storage</h2>
+            <span class="dash-note">Row counts are the database's own estimates, not exact</span>
+        </div>
+        @if (Model.Tables.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="fw-semibold">No table statistics yet</div>
+                <div class="small">Postgres reports these once it has analysed the tables.</div>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 dash-agents act-log">
+                    <thead>
+                        <tr>
+                            <th scope="col">Table</th>
+                            <th scope="col" class="text-end">Rows (approx.)</th>
+                            <th scope="col" class="text-end">On disk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var table in Model.Tables)
+                        {
+                            <tr>
+                                <td>@table.Name</td>
+                                <td class="num text-end">@table.ApproximateRows.ToString("N0")</td>
+                                <td class="num text-end">@SettingsModel.FormatBytes(table.Bytes)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <p class="set-note">
+            Screenshots account for <span class="num">@SettingsModel.FormatBytes(Model.ScreenshotBytes)</span>
+            of this, because their image bytes live in the database rather than on disk beside it.
+            Every backup carries that weight too.
+            @if (Model.OldestEventUtc is { } oldest)
+            {
+                <text>
+                    Oldest activity on record:
+                    <span class="num" data-utc="@oldest.ToString("o")" data-utc-format="date">@oldest.ToString("d MMM yyyy")</span>.
+                </text>
+            }
+        </p>
+    </section>
+
+    <section class="card" aria-labelledby="set-server">
+        <div class="card-header dash-card-head">
+            <h2 id="set-server" class="dash-section-title">Server</h2>
+        </div>
+        <dl class="set-list">
+            <div>
+                <dt>Version</dt>
+                <dd class="num">@Model.ServerVersion</dd>
+            </div>
+            <div>
+                <dt>Environment</dt>
+                <dd>@Model.EnvironmentName</dd>
+            </div>
+            <div>
+                <dt>Server time</dt>
+                <dd>
+                    <span class="num" data-utc="@DateTimeOffset.UtcNow.ToString("o")" data-utc-format="datetime">@DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm")</span>
+                    <span class="tz-label">UTC</span>
+                </dd>
+            </div>
+        </dl>
+        <p class="set-note">
+            Timestamps are stored in UTC everywhere; the zone selector in the header only changes
+            how they are displayed, per browser.
+            <a asp-page="/Account/ChangePassword">Change your password &rarr;</a>
+        </p>
+    </section>
+</div>
