@@ -60,26 +60,26 @@
 
         @* ---- Far ridge: the skyline they are running toward ------------------- *@
         <div class="scene-layer scene-far" data-depth="0.05">
-            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
-                <g fill="#013237" opacity="0.13">
+            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" focusable="false">
+                <g fill="#E8BBB0">
                     <path d="M0 612 L120 586 L268 606 L392 570 L520 598 L664 560 L806 592 L944 566 L1096 600 L1240 572 L1388 598 L1512 578 L1600 596 L1600 900 L0 900 Z" />
                 </g>
 
                 @* Distant clock towers - the same face as the sun, read at a glance. *@
-                <g opacity="0.2">
-                    <g fill="#013237">
+                <g>
+                    <g fill="#D49E96">
                         <rect x="386" y="470" width="34" height="104" rx="3" />
                         <path d="M382 470 L403 446 L424 470 Z" />
-                        <circle cx="403" cy="502" r="11" fill="#FDF6F2" />
-                        <circle cx="403" cy="502" r="11" fill="none" stroke="#013237" stroke-width="2" />
-                        <path d="M403 502 L403 495 M403 502 L408 504" stroke="#013237" stroke-width="2" stroke-linecap="round" fill="none" />
+                        <circle cx="403" cy="502" r="11" fill="#FBE4DA" />
+                        <circle cx="403" cy="502" r="11" fill="none" stroke="#B07F79" stroke-width="2" />
+                        <path d="M403 502 L403 495 M403 502 L408 504" stroke="#B07F79" stroke-width="2" stroke-linecap="round" fill="none" />
                     </g>
-                    <g fill="#013237">
+                    <g fill="#D49E96">
                         <rect x="1006" y="494" width="26" height="80" rx="3" />
                         <path d="M1003 494 L1019 474 L1035 494 Z" />
-                        <circle cx="1019" cy="518" r="8" fill="#FDF6F2" />
-                        <circle cx="1019" cy="518" r="8" fill="none" stroke="#013237" stroke-width="2" />
-                        <path d="M1019 518 L1019 513 M1019 518 L1023 520" stroke="#013237" stroke-width="2" stroke-linecap="round" fill="none" />
+                        <circle cx="1019" cy="518" r="8" fill="#FBE4DA" />
+                        <circle cx="1019" cy="518" r="8" fill="none" stroke="#B07F79" stroke-width="2" />
+                        <path d="M1019 518 L1019 513 M1019 518 L1023 520" stroke="#B07F79" stroke-width="2" stroke-linecap="round" fill="none" />
                     </g>
                 </g>
             </svg>
@@ -87,16 +87,16 @@
 
         @* ---- Mid ridge: the crowd ------------------------------------------- *@
         <div class="scene-layer scene-mid" data-depth="0.12">
-            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" focusable="false">
                 <defs>
                     @*
                         Runners are drawn once and placed with <use>. Feet sit at local y=0 so a
                         translate puts them exactly on the ridge line, and stroke weight scales
                         with the figure, which is what sells the distance.
                     *@
-                    <g id="runnerCase" fill="none" stroke="#013237" stroke-width="7"
+                    <g id="runnerCase" fill="none" stroke="currentColor" stroke-width="7"
                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="8" cy="-72" r="8" fill="#013237" stroke="none" />
+                        <circle cx="8" cy="-72" r="8" fill="currentColor" stroke="none" />
                         <path d="M4 -62 L-2 -34" />
                         <path d="M-2 -34 L12 -20 L18 -3" />
                         <path d="M-2 -34 L-16 -22 L-25 -7" />
@@ -105,9 +105,9 @@
                         <rect x="5" y="-40" width="19" height="14" rx="2.5" stroke-width="5" />
                     </g>
 
-                    <g id="runnerFree" fill="none" stroke="#013237" stroke-width="7"
+                    <g id="runnerFree" fill="none" stroke="currentColor" stroke-width="7"
                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="9" cy="-73" r="8" fill="#013237" stroke="none" />
+                        <circle cx="9" cy="-73" r="8" fill="currentColor" stroke="none" />
                         <path d="M5 -63 L-3 -35" />
                         <path d="M-3 -35 L14 -24 L22 -4" />
                         <path d="M-3 -35 L-18 -25 L-14 -6" />
@@ -115,9 +115,9 @@
                         <path d="M5 -61 L-11 -57 L-19 -64" />
                     </g>
 
-                    <g id="runnerLate" fill="none" stroke="#013237" stroke-width="7"
+                    <g id="runnerLate" fill="none" stroke="currentColor" stroke-width="7"
                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="10" cy="-70" r="8" fill="#013237" stroke="none" />
+                        <circle cx="10" cy="-70" r="8" fill="currentColor" stroke="none" />
                         <path d="M6 -60 L-4 -33" />
                         <path d="M-4 -33 L10 -18 L20 -2" />
                         <path d="M-4 -33 L-19 -24 L-27 -9" />
@@ -127,31 +127,31 @@
                     </g>
                 </defs>
 
-                <g fill="#013237" opacity="0.24">
+                <g fill="#C18187">
                     <path d="M0 690 L146 664 L306 686 L452 652 L606 682 L764 650 L918 680 L1074 654 L1232 684 L1386 658 L1522 682 L1600 668 L1600 900 L0 900 Z" />
                 </g>
 
                 @* Long shadows run back from the light, so they fall left of each figure. *@
-                <g opacity="0.75">
-                    <g transform="translate(232 672) scale(0.62)" class="runner--trailing">
-                        <ellipse cx="-10" cy="3" rx="30" ry="5" fill="#013237" opacity="0.16" />
-                        <use href="#runnerFree" opacity="0.5" />
+                <g>
+                    <g color="#CE9299" transform="translate(232 672) scale(0.62)" class="runner--trailing">
+                        <ellipse cx="-10" cy="3" rx="30" ry="5" fill="#8E5560" opacity="0.28" />
+                        <use href="#runnerFree" />
                     </g>
-                    <g transform="translate(430 678) scale(0.78)">
-                        <ellipse cx="-12" cy="3" rx="32" ry="5" fill="#013237" opacity="0.18" />
-                        <use href="#runnerCase" opacity="0.62" />
+                    <g color="#BE7C84" transform="translate(430 678) scale(0.78)">
+                        <ellipse cx="-12" cy="3" rx="32" ry="5" fill="#8E5560" opacity="0.3" />
+                        <use href="#runnerCase" />
                     </g>
-                    <g transform="translate(690 684) scale(0.7)" class="runner--trailing">
-                        <ellipse cx="-10" cy="3" rx="30" ry="5" fill="#013237" opacity="0.16" />
-                        <use href="#runnerLate" opacity="0.55" />
+                    <g color="#C4868D" transform="translate(690 684) scale(0.7)" class="runner--trailing">
+                        <ellipse cx="-10" cy="3" rx="30" ry="5" fill="#8E5560" opacity="0.28" />
+                        <use href="#runnerLate" />
                     </g>
-                    <g transform="translate(1188 676) scale(0.84)">
-                        <ellipse cx="-14" cy="3" rx="34" ry="6" fill="#013237" opacity="0.2" />
-                        <use href="#runnerFree" opacity="0.66" />
+                    <g color="#B2707B" transform="translate(1188 676) scale(0.84)">
+                        <ellipse cx="-14" cy="3" rx="34" ry="6" fill="#8E5560" opacity="0.32" />
+                        <use href="#runnerFree" />
                     </g>
-                    <g transform="translate(1412 686) scale(0.72)" class="runner--trailing">
-                        <ellipse cx="-12" cy="3" rx="30" ry="5" fill="#013237" opacity="0.16" />
-                        <use href="#runnerCase" opacity="0.58" />
+                    <g color="#C0838A" transform="translate(1412 686) scale(0.72)" class="runner--trailing">
+                        <ellipse cx="-12" cy="3" rx="30" ry="5" fill="#8E5560" opacity="0.28" />
+                        <use href="#runnerCase" />
                     </g>
                 </g>
             </svg>
@@ -159,27 +159,27 @@
 
         @* ---- Near ridge: the ground you are standing on ---------------------- *@
         <div class="scene-layer scene-near" data-depth="0.2">
-            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
-                <g fill="#013237">
-                    <path d="M0 792 L128 766 L286 790 L430 758 L588 788 L742 760 L898 790 L1052 762 L1210 792 L1364 764 L1508 790 L1600 774 L1600 900 L0 900 Z" opacity="0.9" />
+            <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" focusable="false">
+                <g fill="#1C4655">
+                    <path d="M0 792 L128 766 L286 790 L430 758 L588 788 L742 760 L898 790 L1052 762 L1210 792 L1364 764 L1508 790 L1600 774 L1600 900 L0 900 Z" />
                 </g>
 
                 @* Two figures close enough to read as solid, one already well ahead. *@
-                <g transform="translate(300 800) scale(1.18)">
-                    <ellipse cx="-16" cy="4" rx="40" ry="7" fill="#013237" opacity="0.22" />
+                <g color="#012B30" transform="translate(300 800) scale(1.18)">
+                    <ellipse cx="-16" cy="4" rx="40" ry="7" fill="#01252A" opacity="0.5" />
                     <use href="#runnerCase" />
                 </g>
                 @* Centre-band figure: the one that survives the crop on a phone. *@
-                <g transform="translate(880 812) scale(1.1)">
-                    <ellipse cx="-15" cy="4" rx="38" ry="6" fill="#013237" opacity="0.21" />
+                <g color="#012B30" transform="translate(880 812) scale(1.1)">
+                    <ellipse cx="-15" cy="4" rx="38" ry="6" fill="#01252A" opacity="0.5" />
                     <use href="#runnerFree" />
                 </g>
-                <g transform="translate(1320 806) scale(1.06)">
-                    <ellipse cx="-14" cy="4" rx="36" ry="6" fill="#013237" opacity="0.2" />
+                <g color="#012B30" transform="translate(1320 806) scale(1.06)">
+                    <ellipse cx="-14" cy="4" rx="36" ry="6" fill="#01252A" opacity="0.5" />
                     <use href="#runnerLate" />
                 </g>
 
-                <g stroke="#013237" stroke-width="5" stroke-linecap="round" opacity="0.92">
+                <g stroke="#012B30" stroke-width="5" stroke-linecap="round">
                     <path d="M92 800 L88 778 M110 802 L114 782 M126 800 L122 784" />
                     <path d="M620 798 L616 776 M638 800 L642 780" />
                     <path d="M980 800 L976 780 M998 802 L1002 782 M1014 800 L1010 786" />

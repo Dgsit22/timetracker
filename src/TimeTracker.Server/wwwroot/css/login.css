@@ -164,7 +164,8 @@
   margin: 0 0 1.5rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: var(--color-text-muted);
+  /* The shared muted token lands at 4.42:1 here - just under the floor. */
+  color: #5F6E6C;
   text-wrap: pretty;
 }
 
@@ -216,8 +217,9 @@
 }
 
 .login-card .form-control::placeholder {
-  /* Tinted from the surface hue rather than gray, and dark enough to read. */
-  color: #8A9997;
+  /* Tinted from the surface hue rather than gray, and dark enough to read:
+     5.8:1 on the field background, where the previous value managed 2.96:1. */
+  color: #5A6866;
 }
 
 .login-card .form-control:hover {
@@ -397,19 +399,20 @@
   gap: 0.5rem;
   padding: 0 1rem 1.75rem;
   font-size: 0.75rem;
-  color: #5A6B69;
+  /* Over the dark near ridge rather than the sky: 8.5:1 light-on-teal. */
+  color: #F7E2D6;
 }
 
 .login-foot a {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: rgba(1, 50, 55, 0.3);
+  text-decoration-color: rgba(247, 226, 214, 0.45);
   text-underline-offset: 3px;
   transition: text-decoration-color 140ms ease;
 }
 
 .login-foot a:hover {
-  text-decoration-color: var(--color-ink);
+  text-decoration-color: #F7E2D6;
 }
 
 .login-foot-dot {
