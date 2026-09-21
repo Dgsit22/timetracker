@@ -76,11 +76,11 @@ public partial class SettingsWindow : Window
 
         // The watchdog task (see installer/Product.wxs) already knows how to relaunch this
         // exe - reuse it instead of spawning a new instance directly, which would race the
-        // single-instance mutex this process is still holding at the moment of the click.
-        // "/Run" fires it immediately rather than waiting for its next 5-minute tick; the
-        // "timeout 2" delay gives this process time to actually exit and release the mutex
-        // first, since schtasks itself returns as soon as the run is *requested*, not once
-        // the launched exe has actually started.
+        // single-instance mutex the tracking instance is still holding at the moment of the
+        // click. "/Run" fires it immediately rather than waiting for its next 5-minute tick;
+        // the "timeout 2" delay gives that instance time to actually exit and release the
+        // mutex first, since schtasks itself returns as soon as the run is *requested*, not
+        // once the launched exe has actually started.
         try
         {
             Process.Start(new ProcessStartInfo
@@ -97,7 +97,23 @@ public partial class SettingsWindow : Window
             // minutes) picks this up instead, same as if this button didn't exist at all.
         }
 
-        System.Windows.Forms.Application.Exit();
+        // Signal rather than exit this process. This window has two hosts: the tray, where it
+        // runs inside the tracking process, and the Start Menu shortcut, where it runs as its
+        // own UI-only process. The old Application.Exit() only worked in the first - in the
+        // second it exited nothing, the tracking instance kept the mutex, and the relaunch
+        // scheduled above died instantly as a duplicate, leaving the saved settings unapplied
+        // with nothing on screen to say so. The named event reaches the tracking instance in
+        // both cases, and in the tray case that is simply this process signalling itself.
+        if (!AgentShutdownSignal.Request())
+        {
+            // No instance was listening, so there is nothing to restart and the watchdog run
+            // scheduled above is what will start it. Saying so beats a window that looks like
+            // it did nothing.
+            ShowStatus("Saved. The Agent was not running; the watchdog will start it shortly.", isError: false);
+            return;
+        }
+
+        Close();
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();

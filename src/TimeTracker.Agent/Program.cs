@@ -119,13 +119,36 @@ await host.StartAsync();
 // own explicitly-created STA thread rather than assuming the top-level Main's own
 // apartment state, so this doesn't depend on SDK-inferred [STAThread] behavior.
 var serverUrl = ConnectionTest.GetConfiguredServerUrl();
+AgentTrayIcon? trayIconRef = null;
+using var trayReady = new ManualResetEventSlim();
+
 var trayThread = new Thread(() =>
 {
     using var trayIcon = new AgentTrayIcon(serverUrl);
+    trayIconRef = trayIcon;
+    trayReady.Set();
     Application.Run();
 });
 trayThread.SetApartmentState(ApartmentState.STA);
 trayThread.Start();
+
+// Lets the Settings window end this instance so the watchdog's relaunch picks up newly saved
+// settings - see AgentShutdownSignal for why a named event rather than each side exiting itself.
+// Background thread: it spends its whole life blocked on the event, and must never be the reason
+// the process stays alive once the tray loop has ended.
+using var shutdownSignal = AgentShutdownSignal.CreateListener();
+var shutdownThread = new Thread(() =>
+{
+    shutdownSignal.WaitOne();
+    trayIconRef?.RequestExit();
+})
+{
+    IsBackground = true,
+};
+
+trayReady.Wait();
+shutdownThread.Start();
+
 trayThread.Join();
 
 await host.StopAsync();

@@ -15,11 +15,19 @@ public sealed class AgentTrayIcon : IDisposable
 {
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu;
+    private readonly Control _marshal;
     private readonly string _serverUrl;
 
     public AgentTrayIcon(string serverUrl)
     {
         _serverUrl = serverUrl;
+
+        // A hidden control purely to get back onto this thread from elsewhere. The context menu
+        // cannot serve: its handle does not exist until the menu is first shown, and BeginInvoke
+        // throws without one. Forcing this handle now pins the marshalling target to the tray
+        // thread for the process's lifetime.
+        _marshal = new Control();
+        _ = _marshal.Handle;
 
         var menu = _menu = new ContextMenuStrip();
         menu.Items.Add("Settings...", null, OnSettings);
@@ -52,18 +60,9 @@ public sealed class AgentTrayIcon : IDisposable
     {
         // Deferred rather than opened inline. This runs from a ToolStripMenuItem click, and the
         // context menu still holds mouse capture at that point: a modal window opened underneath
-        // it never receives input, so the Agent looks frozen with no way back. Posting through
-        // the menu's own control lets it finish closing and release capture first.
-        // BeginInvoke needs a created handle. The menu always has one by the time one of its
-        // items is clicked, but falling back keeps this from throwing if that ever stops holding.
-        if (_menu.IsHandleCreated)
-        {
-            _menu.BeginInvoke(new Action(ShowSettings));
-        }
-        else
-        {
-            ShowSettings();
-        }
+        // it never receives input, so the Agent looks frozen with no way back. Posting the work
+        // back to this thread lets the menu finish closing and release capture first.
+        _marshal.BeginInvoke(new Action(ShowSettings));
     }
 
     private void ShowSettings()
@@ -152,9 +151,27 @@ public sealed class AgentTrayIcon : IDisposable
         }
     }
 
+    /// <summary>
+    /// Ends the Agent from any thread. Application.Exit() has thread affinity, so it is posted
+    /// onto the tray thread that owns the message loop rather than called where the request
+    /// arrived - see the shutdown listener in Program.cs.
+    /// </summary>
+    public void RequestExit()
+    {
+        try
+        {
+            _marshal.BeginInvoke(new Action(Application.Exit));
+        }
+        catch (Exception)
+        {
+            // Racing a shutdown already in progress; the loop is going away either way.
+        }
+    }
+
     public void Dispose()
     {
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
+        _marshal.Dispose();
     }
 }
