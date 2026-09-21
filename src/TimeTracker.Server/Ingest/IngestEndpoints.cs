@@ -419,6 +419,20 @@ public static class IngestEndpoints
             var provided = context.HttpContext.Request.Headers[ApiKeyHeader].ToString();
             if (!FixedTimeEquals(provided, expectedKey))
             {
+                // Logged because a rejected Agent was otherwise completely invisible here: the
+                // server said nothing, so an Agent turned away for a bad key looked exactly like
+                // one that had never been installed. Reports the length only - never the value,
+                // or any prefix of it, which would put a near-miss of the real key in the logs.
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogWarning(
+                    "Rejected agent request to {Path} from {RemoteIp}: {Reason}. The Agent's "
+                    + "AGENTAPIKEY must match the server's AGENT_API_KEY exactly.",
+                    context.HttpContext.Request.Path,
+                    context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    provided.Length == 0
+                        ? "no X-Agent-Key header"
+                        : $"X-Agent-Key did not match (received {provided.Length} characters, expected {expectedKey.Length})");
+
                 return Results.Unauthorized();
             }
 
