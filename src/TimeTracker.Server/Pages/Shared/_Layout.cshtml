@@ -17,6 +17,30 @@
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
     string NavClass(string page) => "sidebar-nav-link" + (currentPage == page ? " active" : "");
+
+    // One drawn icon per destination, same 16px box and 1.6 stroke throughout. Inline rather
+    // than an icon font: the set is eight glyphs, and a webfont for that is a request and a
+    // FOUT for nothing.
+    var navIcons = new Dictionary<string, string>
+    {
+        ["/Dashboard"] = "<rect x='2.5' y='2.5' width='5.5' height='5.5' rx='1.2'/><rect x='10' y='2.5' width='5.5' height='5.5' rx='1.2'/><rect x='2.5' y='10' width='5.5' height='5.5' rx='1.2'/><rect x='10' y='10' width='5.5' height='5.5' rx='1.2'/>",
+        ["/Activity"] = "<path d='M1.5 9.5h3l2-5 3 9 2.5-6 1 2h3'/>",
+        ["/Devices"] = "<rect x='2' y='3' width='14' height='9' rx='1.5'/><path d='M6.5 15h5'/><path d='M9 12v3'/>",
+        ["/Users"] = "<circle cx='6.75' cy='6' r='2.75'/><path d='M1.75 14.5c0-2.4 2.24-4 5-4s5 1.6 5 4'/><path d='M12 4.2a2.6 2.6 0 0 1 0 5'/><path d='M13.4 14.5c0-1.6-.5-2.7-1.4-3.4'/>",
+        ["/Groups"] = "<circle cx='5' cy='5.5' r='2.2'/><circle cx='12' cy='5.5' r='2.2'/><path d='M1.5 13.5c0-1.9 1.6-3.2 3.5-3.2s3.5 1.3 3.5 3.2'/><path d='M9.5 13.5c0-1.9 1.1-3.2 3-3.2s3 1.3 3 3.2'/>",
+        ["/Exclusions"] = "<circle cx='8' cy='8' r='6'/><path d='M3.8 3.8l8.4 8.4'/>",
+        ["/Reports"] = "<path d='M3.5 2.5h6L13 6v7.5a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z'/><path d='M9.25 2.5V6H13'/><path d='M5.5 9h5M5.5 11.5h3.5'/>",
+        ["/Privacy"] = "<path d='M8 1.8 13.5 4v4.2c0 3-2.3 5.3-5.5 6.2-3.2-.9-5.5-3.2-5.5-6.2V4Z'/><path d='M5.9 8.2l1.5 1.5 3-3.1'/>",
+    };
+}
+
+@functions {
+    public static string NavIconMarkup(string paths) =>
+        $"<svg class=\"sidebar-nav-icon\" viewBox=\"0 0 18 18\" fill=\"none\" stroke=\"currentColor\" "
+        + $"stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">{paths}</svg>";
+}
+
+@{
     string Initials(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -54,17 +78,17 @@
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <a class="@NavClass("/Dashboard")" asp-page="/Dashboard">Dashboard</a>
-                <a class="@NavClass("/Activity")" asp-page="/Activity">Activity</a>
+                <a class="@NavClass("/Dashboard")" asp-page="/Dashboard">@Html.Raw(NavIconMarkup(navIcons["/Dashboard"]))<span>Dashboard</span></a>
+                <a class="@NavClass("/Activity")" asp-page="/Activity" aria-current="@(currentPage == "/Activity" ? "page" : null)">@Html.Raw(NavIconMarkup(navIcons["/Activity"]))<span>Activity</span></a>
                 @if (User.IsInRole("Admin"))
                 {
-                    <a class="@NavClass("/Devices")" asp-page="/Devices">Devices</a>
-                    <a class="@NavClass("/Users")" asp-page="/Users">Users</a>
-                    <a class="@NavClass("/Groups")" asp-page="/Groups">Groups</a>
-                    <a class="@NavClass("/Exclusions")" asp-page="/Exclusions">Exclusions</a>
+                    <a class="@NavClass("/Devices")" asp-page="/Devices">@Html.Raw(NavIconMarkup(navIcons["/Devices"]))<span>Devices</span></a>
+                    <a class="@NavClass("/Users")" asp-page="/Users">@Html.Raw(NavIconMarkup(navIcons["/Users"]))<span>Users</span></a>
+                    <a class="@NavClass("/Groups")" asp-page="/Groups">@Html.Raw(NavIconMarkup(navIcons["/Groups"]))<span>Groups</span></a>
+                    <a class="@NavClass("/Exclusions")" asp-page="/Exclusions">@Html.Raw(NavIconMarkup(navIcons["/Exclusions"]))<span>Exclusions</span></a>
                 }
-                <a class="@NavClass("/Reports")" asp-page="/Reports">Reports</a>
-                <a class="@NavClass("/Privacy")" asp-page="/Privacy">Privacy</a>
+                <a class="@NavClass("/Reports")" asp-page="/Reports">@Html.Raw(NavIconMarkup(navIcons["/Reports"]))<span>Reports</span></a>
+                <a class="@NavClass("/Privacy")" asp-page="/Privacy">@Html.Raw(NavIconMarkup(navIcons["/Privacy"]))<span>Privacy</span></a>
             </nav>
             <div class="sidebar-footer">
                 <div><span class="status-dot"></span>Server Online</div>
@@ -74,7 +98,12 @@
         <div class="app-main">
             <header class="topbar">
                 <div class="topbar-search">
-                    <input type="search" placeholder="Search users, devices or activities..." disabled />
+                    <svg class="topbar-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                         stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="7.2" cy="7.2" r="4.4" /><path d="M10.5 10.5 14 14" />
+                    </svg>
+                    <input type="search" placeholder="Search users, devices or activities..." disabled
+                           aria-label="Search (not yet available)" title="Search is not implemented yet" />
                 </div>
                 <div class="topbar-right">
                     @{ var nowIso = DateTimeOffset.UtcNow.ToString("o"); }

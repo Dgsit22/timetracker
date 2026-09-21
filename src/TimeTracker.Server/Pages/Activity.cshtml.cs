@@ -326,7 +326,8 @@ public class ActivityModel : PageModel
                 segmentsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<StateSegment>(),
                 topAppsByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
                 topSitesByDevice.GetValueOrDefault(d.DeviceId) ?? new List<CategorySlice>(),
-                d.IsPinned))
+                d.IsPinned,
+                d.LastSeenUtc))
             // Pinned first, so a machine being watched closely stays at the top even on a quiet
             // day when its active time would otherwise sink below everything else.
             .OrderByDescending(s => s.IsPinned)
@@ -497,4 +498,13 @@ public record DeviceSummary(
     List<StateSegment> Segments,
     List<CategorySlice> TopApps,
     List<CategorySlice> TopSites,
-    bool IsPinned);
+    bool IsPinned,
+    DateTimeOffset LastSeenUtc)
+{
+    /// <summary>
+    /// The Agent checks in at least hourly even on a quiet machine, so silence past that means it
+    /// has stopped reporting. Two hours rather than one, matching the Devices page, so a single
+    /// missed check-in is not called an outage.
+    /// </summary>
+    public bool IsReporting => DateTimeOffset.UtcNow - LastSeenUtc < TimeSpan.FromHours(2);
+}

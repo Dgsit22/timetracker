@@ -1048,29 +1048,6 @@ a {
   padding: 1rem 1.1rem 1.1rem;
 }
 
-.act-totals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 2.25rem;
-  margin: 0 0 1.1rem;
-}
-
-.act-totals dt {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.act-totals dd {
-  margin: 0.1rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--color-ink);
-}
-
 .act-timeline {
   margin-bottom: 1.25rem;
 }
@@ -1236,11 +1213,7 @@ a {
     grid-column: 2;
   }
 
-  .act-totals {
-    gap: 0.75rem 1.5rem;
-  }
-
-  .dash-ranges {
+    .dash-ranges {
     margin-left: 0;
   }
 
@@ -1306,4 +1279,507 @@ a {
 
 .status-dot-silent {
   background: var(--color-danger);
+}
+
+/* ==========================================================================
+   Activity page redesign
+   Enterprise monitoring layout: a compact page head, one filter card, a device
+   card that leads with KPIs, and a log that reads as a product table rather
+   than a database dump. Built on the existing tokens and dash-* primitives -
+   nothing here forks the design system.
+   ========================================================================== */
+
+/* --- Page head ----------------------------------------------------------- */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-head .page-heading {
+  margin: 0 0 0.25rem;
+}
+
+.page-head .page-subtitle {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.page-head-text {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* What the numbers on screen actually cover. Demoted from the subtitle it used
+   to be: it is state, not description, and belongs next to the control that
+   changes it. */
+.page-head-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.page-head-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  flex: none;
+}
+
+.btn-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.3rem;
+  vertical-align: -0.12em;
+}
+
+/* --- Filter card --------------------------------------------------------- */
+
+.filter-bar {
+  padding: 0.875rem 1rem 0.75rem;
+}
+
+/* The two quick-control groups sit at the end of the field row and push right,
+   so the inputs read as one run and the shortcuts as a separate affordance. */
+.dash-filters .dash-ranges:first-of-type {
+  margin-left: auto;
+}
+
+.act-window-zone {
+  font-variant: none;
+  text-transform: none;
+}
+
+/* --- Device card --------------------------------------------------------- */
+
+.act-device-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.act-device-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  flex: none;
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.act-device-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.act-device-id {
+  min-width: 0;
+}
+
+.act-device-id .dash-section-title {
+  margin: 0;
+}
+
+.act-device-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.act-device-note {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* --- KPI row ------------------------------------------------------------- */
+
+.act-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.act-kpi {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+/* The total is a sum of the four beside it, not a fifth state - the surface
+   change says so without needing a divider or a label explaining it. */
+.act-kpi.is-total {
+  background: var(--color-surface);
+  border-style: dashed;
+}
+
+.act-kpi dt {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.act-kpi dd {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0;
+}
+
+.act-kpi-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+
+.act-kpi-share {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* --- Timeline ------------------------------------------------------------ */
+
+.act-timeline-block {
+  padding: 0.75rem 0.85rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin-bottom: 1.25rem;
+}
+
+.act-timeline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.act-timeline-head .act-subtitle {
+  margin: 0;
+}
+
+.act-timeline {
+  margin-bottom: 0;
+}
+
+/* --- Top applications / websites ----------------------------------------- */
+
+.act-panel {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.act-panel .act-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0;
+}
+
+.act-panel-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--color-text-muted);
+  flex: none;
+}
+
+/* --- Activity log -------------------------------------------------------- */
+
+.act-count {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-cream);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  vertical-align: 0.05em;
+}
+
+.act-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.act-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.act-sort svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.act-actions-col {
+  width: 2.5rem;
+  text-align: right;
+}
+
+.act-rowmenu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  /* Revealed on hover or focus rather than always on: five columns of data are
+     the point, and a dot menu in every row competes with them. It stays
+     keyboard-reachable because focus-within shows it too. */
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.act-rowmenu-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.table-hover > tbody > tr:hover .act-rowmenu-btn,
+.act-rowmenu-btn:focus-visible,
+.act-rowmenu.show .act-rowmenu-btn {
+  opacity: 1;
+}
+
+.act-rowmenu-btn:hover {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.act-rowmenu-btn:focus-visible {
+  outline: 2px solid var(--color-accent-2);
+  outline-offset: 1px;
+  color: var(--color-ink);
+}
+
+/* Touch has no hover to reveal it with. */
+@media (hover: none) {
+  .act-rowmenu-btn {
+    opacity: 1;
+  }
+}
+
+/* --- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 1200px) {
+  .act-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 992px) {
+  .act-device-note {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .dash-filters .dash-ranges:first-of-type {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .act-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page-head-text {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+.page-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .act-timeline-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .act-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .act-kpi.is-total {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- Typography, scoped to this page ------------------------------------- */
+
+/* Bootstrap's h1 is 40px here, which is why the old head ate the fold. Scoped
+   to .page-head so the other pages keep their current heading size. */
+.page-head .page-heading {
+  font-size: 1.9rem;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.page-head .page-subtitle {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* A monitoring log is read by scanning, so it sets tighter than body copy and
+   leans on alignment rather than size for hierarchy. */
+.act-log {
+  font-size: 0.82rem;
+}
+
+.act-log > thead {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.act-log > thead th {
+  background: var(--color-bg);
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  font-size: 0.7rem;
+}
+
+.act-log > tbody > tr > * {
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  border-color: color-mix(in srgb, var(--color-border) 55%, transparent);
+  vertical-align: middle;
+}
+
+/* Details is the column people actually read; the identifiers beside it are
+   context, so they recede rather than compete. */
+.act-log .act-details {
+  color: var(--color-text);
+}
+
+.act-log td:nth-child(5),
+.act-log td:nth-child(6) {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+/* --- Sidebar navigation: icons and a stronger active state ---------------- */
+
+.sidebar-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sidebar-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  opacity: 0.8;
+}
+
+.sidebar-nav-link:hover .sidebar-nav-icon,
+.sidebar-nav-link.active .sidebar-nav-icon {
+  opacity: 1;
+}
+
+/* The coral fill already carries the active row; the marker anchors it to the
+   sidebar edge so the current section is findable without reading. */
+.sidebar-nav-link.active {
+  position: relative;
+}
+
+.sidebar-nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.25rem;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-accent-2);
+}
+
+.sidebar-nav-link:focus-visible {
+  outline: 2px solid var(--color-accent-1);
+  outline-offset: 1px;
+}
+
+/* --- Top bar search ------------------------------------------------------- */
+
+.topbar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.topbar-search input {
+  padding-left: 2rem;
+}
+
+/* Bootstrap 5.1 ships .fw-bold and .fw-normal but not .fw-semibold, which arrived in 5.3 - the
+   empty states across the app ask for it and have been getting normal weight ever since. */
+.fw-semibold {
+  font-weight: 600 !important;
 }

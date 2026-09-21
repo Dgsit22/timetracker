@@ -60,12 +60,25 @@
         + (exportQuery.HasValue ? "&" + exportQuery.Value!.TrimStart('?') : string.Empty);
 }
 
-<header class="dash-header d-flex justify-content-between align-items-start gap-3">
-    <div>
-        <h1 class="page-heading mb-1">Activity</h1>
-        <p class="page-subtitle mb-0">@rangeLabel <span aria-hidden="true">·</span> @scopeLabel</p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-heading">Activity</h1>
+        <p class="page-subtitle">Monitor user activity, application usage and device status in real time.</p>
     </div>
-    <a href="@exportUrl" class="btn btn-primary btn-sm flex-none" title="Download the events matching these filters">&#8681; Export CSV</a>
+    <div class="page-head-actions">
+        <span class="page-head-scope" title="What these results cover">
+            <span class="num">@rangeLabel</span>
+            <span class="page-head-dot" aria-hidden="true"></span>
+            @scopeLabel
+        </span>
+        <a href="@exportUrl" class="btn btn-primary btn-sm" title="Download the events matching these filters">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 2v7.5" /><path d="M5 7l3 3 3-3" /><path d="M2.5 12.5h11" />
+            </svg>
+            Export CSV
+        </a>
+    </div>
 </header>
 
 <form method="get" class="filter-bar mb-4">
@@ -155,54 +168,97 @@
 }
 else
 {
-    <div class="act-legend mb-2" aria-label="Timeline colours">
-        <span class="dash-note">Timeline in <span class="tz-label">UTC</span>. Hover a block for its exact times.</span>
-        <span class="act-legend-items">
-            @foreach (var s in states)
-            {
-                <span><span class="dash-swatch dash-seg-@s.Key" aria-hidden="true"></span>@s.Label</span>
-            }
-            <span><span class="dash-swatch act-untracked" aria-hidden="true"></span>Not tracked</span>
-        </span>
-    </div>
-
     @foreach (var summary in Model.DeviceSummaries)
     {
         var t = summary.Time;
         var values = new[] { t.ActiveSeconds, t.IdleSeconds, t.LockedSeconds, t.AsleepSeconds };
+        var tracked = t.TotalSeconds;
         <section class="card mb-4" aria-labelledby="device-@summary.DeviceId">
-            <div class="card-header dash-card-head">
-                <h2 id="device-@summary.DeviceId" class="dash-section-title">
-                    @summary.MachineName
-                    @if (summary.IsPinned)
-                    {
-                        <svg class="dash-pin" viewBox="0 0 16 16" aria-label="Pinned" role="img"><path d="M10.5 1.5 14.5 5.5 11.8 6.9 9.4 9.3 9.6 12.4 8.4 13.6 5.6 10.8 2 14.4M5.6 10.8 2.4 7.6 3.6 6.4 6.7 6.6 9.1 4.2Z" /></svg>
-                    }
-                </h2>
-                <span class="dash-note">Device totals for the range, all users</span>
+            <div class="act-device-head">
+                <span class="act-device-icon" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2.5" y="3.5" width="15" height="10" rx="1.5" />
+                        <path d="M7 16.5h6" /><path d="M10 13.5v3" />
+                    </svg>
+                </span>
+                <div class="act-device-id">
+                    <h2 id="device-@summary.DeviceId" class="dash-section-title">
+                        @summary.MachineName
+                        @if (summary.IsPinned)
+                        {
+                            <svg class="dash-pin" viewBox="0 0 16 16" aria-label="Pinned" role="img"><path d="M10.5 1.5 14.5 5.5 11.8 6.9 9.4 9.3 9.6 12.4 8.4 13.6 5.6 10.8 2 14.4M5.6 10.8 2.4 7.6 3.6 6.4 6.7 6.6 9.1 4.2Z" /></svg>
+                        }
+                    </h2>
+                    <p class="act-device-meta">
+                        <span class="dash-state @(summary.IsReporting ? "is-reporting" : "is-silent")">@(summary.IsReporting ? "Online" : "Not reporting")</span>
+                        <span class="page-head-dot" aria-hidden="true"></span>
+                        Last seen
+                        <span class="num" data-utc="@summary.LastSeenUtc.ToString("o")" data-utc-format="datetime">@summary.LastSeenUtc.ToString("d MMM yyyy, HH:mm")</span>
+                        <span class="tz-label">UTC</span>
+                    </p>
+                </div>
+                <span class="dash-note act-device-note">Device totals for the range, all users</span>
             </div>
+
             <div class="act-device">
-                <dl class="act-totals">
+                <dl class="act-kpis">
                     @for (var i = 0; i < states.Length; i++)
                     {
-                        <div>
+                        var share = tracked > 0 ? values[i] / tracked : 0d;
+                        <div class="act-kpi">
                             <dt><span class="dash-swatch dash-seg-@states[i].Key" aria-hidden="true"></span>@states[i].Label</dt>
-                            <dd class="num">@Dur(values[i])</dd>
+                            <dd>
+                                <span class="act-kpi-value num">@Dur(values[i])</span>
+                                @if (tracked > 0)
+                                {
+                                    <span class="act-kpi-share num">@share.ToString("P0")</span>
+                                }
+                            </dd>
                         </div>
                     }
+                    <div class="act-kpi is-total">
+                        <dt>Total tracked</dt>
+                        <dd><span class="act-kpi-value num">@Dur(tracked)</span></dd>
+                    </div>
                 </dl>
 
-                <div class="act-timeline" data-device="@summary.DeviceId">
-                    <noscript><p class="dash-note">The timeline needs JavaScript.</p></noscript>
-                </div>
+                <section class="act-timeline-block" aria-label="Activity timeline for @summary.MachineName">
+                    <div class="act-timeline-head">
+                        <h3 class="act-subtitle">Activity timeline (<span class="tz-label">UTC</span>)</h3>
+                        <span class="act-legend-items">
+                            @foreach (var st in states)
+                            {
+                                <span><span class="dash-swatch dash-seg-@st.Key" aria-hidden="true"></span>@st.Label</span>
+                            }
+                            <span><span class="dash-swatch act-untracked" aria-hidden="true"></span>Not tracked</span>
+                        </span>
+                    </div>
+                    <div class="act-timeline" data-device="@summary.DeviceId">
+                        <noscript><p class="dash-note">The timeline needs JavaScript.</p></noscript>
+                    </div>
+                </section>
 
                 <div class="act-ranked-grid">
-                    <div>
-                        <h3 class="act-subtitle">Top applications</h3>
+                    <div class="act-panel">
+                        <h3 class="act-subtitle">
+                            <svg class="act-panel-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12" />
+                            </svg>
+                            Top applications
+                        </h3>
                         <partial name="_RankedList" model="(summary.TopApps, noAppsText)" />
                     </div>
-                    <div>
-                        <h3 class="act-subtitle">Top websites</h3>
+                    <div class="act-panel">
+                        <h3 class="act-subtitle">
+                            <svg class="act-panel-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="8" cy="8" r="6" /><path d="M2 8h12" />
+                                <path d="M8 2c1.8 2 2.6 4 2.6 6S9.8 12 8 14C6.2 12 5.4 10 5.4 8S6.2 4 8 2Z" />
+                            </svg>
+                            Top websites
+                        </h3>
                         <partial name="_RankedList" model="(summary.TopSites, noSitesText)" />
                     </div>
                 </div>
@@ -213,8 +269,17 @@ else
 
 <section class="card" aria-labelledby="log-heading">
     <div class="card-header dash-card-head">
-        <h2 id="log-heading" class="dash-section-title">Activity log <span class="dash-note num">(@Model.Rows.Count)</span></h2>
-        <span class="dash-note">Newest first, up to 200 rows. Times in <span class="tz-label">UTC</span>.</span>
+        <h2 id="log-heading" class="dash-section-title">Activity log <span class="act-count num">@Model.Rows.Count</span></h2>
+        <div class="act-log-meta">
+            <span class="act-sort" title="The newest matching events come first">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 3.5v9" /><path d="M2 10.5l2 2 2-2" /><path d="M8.5 5h5.5" /><path d="M8.5 8.5h4" /><path d="M8.5 12h2.5" />
+                </svg>
+                Newest first
+            </span>
+            <span class="dash-note">Times in <span class="tz-label">UTC</span></span>
+        </div>
     </div>
     @if (Model.Rows.Count > 0)
     {
@@ -229,6 +294,7 @@ else
                         <th scope="col">User</th>
                         <th scope="col">Device</th>
                         <th scope="col"><span class="visually-hidden">Screenshot</span></th>
+                        <th scope="col" class="act-actions-col"><span class="visually-hidden">Row actions</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -254,6 +320,49 @@ else
                                         <img class="act-thumb" src="/api/screenshots/@screenshotId" alt="Screenshot taken at @row.TimestampUtc.ToString("HH:mm") UTC" loading="lazy" />
                                     </a>
                                 }
+                            </td>
+                            <td class="act-actions-col">
+                                @*
+                                    Every entry narrows the page to something the row already shows,
+                                    using the filters that exist - a menu of real navigation rather
+                                    than a decorative one.
+                                *@
+                                <div class="dropdown act-rowmenu">
+                                    <button class="act-rowmenu-btn" type="button" data-bs-toggle="dropdown"
+                                            aria-expanded="false" aria-label="Actions for the @typeLabels[row.Kind] event at @row.TimestampUtc.ToString("HH:mm") UTC">
+                                        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                            <circle cx="3" cy="8" r="1.35" /><circle cx="8" cy="8" r="1.35" /><circle cx="13" cy="8" r="1.35" />
+                                        </svg>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" asp-page="/Activity"
+                                               asp-route-UserName="@row.UserName"
+                                               asp-route-DeviceId="@Model.DeviceId"
+                                               asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
+                                               asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")">Filter to this user</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-page="/Activity"
+                                               asp-route-UserName="@Model.UserName"
+                                               asp-route-DeviceId="@row.DeviceId"
+                                               asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
+                                               asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")">Filter to this device</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-page="/Activity"
+                                               asp-route-UserName="@Model.UserName"
+                                               asp-route-DeviceId="@row.DeviceId"
+                                               asp-route-FromDate="@DateOnly.FromDateTime(row.TimestampUtc.UtcDateTime).ToString("yyyy-MM-dd")"
+                                               asp-route-ToDate="@DateOnly.FromDateTime(row.TimestampUtc.UtcDateTime).ToString("yyyy-MM-dd")">Show this whole day</a>
+                                        </li>
+                                        @if (row.ScreenshotId is { } menuShot)
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li><a class="dropdown-item" href="/api/screenshots/@menuShot" target="_blank" rel="noopener">Open screenshot</a></li>
+                                        }
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                     }
