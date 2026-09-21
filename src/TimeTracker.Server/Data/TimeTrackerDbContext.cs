@@ -32,5 +32,47 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Group>().HasKey(e => e.GroupId);
         modelBuilder.Entity<GroupMember>().HasKey(e => new { e.GroupId, e.UserName });
         modelBuilder.Entity<ExclusionRule>().HasKey(e => e.ExclusionRuleId);
+
+        // Every read path filters by device or user and sorts by time descending - Activity,
+        // Dashboard, Reports and the retention sweep all do it. Without these, Postgres sorts
+        // the whole table on each page load, which is invisible at a few thousand rows and
+        // ruinous at the millions a handful of devices produce in a year. The time column
+        // descends in the index so the newest rows, which is all any page asks for, are the
+        // ones the scan reaches first.
+        modelBuilder.Entity<AppUsageEvent>(e =>
+        {
+            e.HasIndex(x => new { x.DeviceId, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.UserName, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => x.StartedAtUtc);
+        });
+
+        modelBuilder.Entity<IdlePeriodEvent>(e =>
+        {
+            e.HasIndex(x => new { x.DeviceId, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.UserName, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => x.StartedAtUtc);
+        });
+
+        modelBuilder.Entity<UrlVisitEvent>(e =>
+        {
+            e.HasIndex(x => new { x.DeviceId, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.UserName, x.StartedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => x.StartedAtUtc);
+        });
+
+        modelBuilder.Entity<SessionBreakEvent>(e =>
+        {
+            e.HasIndex(x => new { x.DeviceId, x.BreakStartUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.UserName, x.BreakStartUtc }).IsDescending(false, true);
+            e.HasIndex(x => x.BreakStartUtc);
+        });
+
+        // Screenshots are also swept by capture time alone, by retention.
+        modelBuilder.Entity<ScreenshotEvent>(e =>
+        {
+            e.HasIndex(x => new { x.DeviceId, x.CapturedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.UserName, x.CapturedAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => x.CapturedAtUtc);
+        });
     }
 }
