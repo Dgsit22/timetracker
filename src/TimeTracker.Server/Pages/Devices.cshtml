@@ -31,6 +31,7 @@
             <th>Last user</th>
             <th>First seen (<span class="tz-label">UTC</span>)</th>
             <th>Last seen (<span class="tz-label">UTC</span>)</th>
+            <th title="The Agent checks in at least hourly, even on a quiet machine. Nothing for @DevicesModel.OfflineAfterHours hours means it has stopped reporting.">Status</th>
             <th>Idle today</th>
             <th>App usage</th>
             <th>URL visits</th>
@@ -56,6 +57,18 @@
                 <td>@device.LastUserName</td>
                 <td data-utc="@device.FirstSeenUtc.ToString("o")" data-utc-format="datetime">@device.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
                 <td data-utc="@device.LastSeenUtc.ToString("o")" data-utc-format="datetime">@device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>
+                    @if (DevicesModel.IsReporting(device))
+                    {
+                        <span class="device-state"><span class="status-dot"></span>Reporting</span>
+                    }
+                    else
+                    {
+                        <span class="device-state device-state-silent" title="Last check-in @device.LastSeenUtc.ToString("yyyy-MM-dd HH:mm") UTC">
+                            <span class="status-dot status-dot-silent"></span>@DevicesModel.FormatSilence(device)
+                        </span>
+                    }
+                </td>
                 <td>@DevicesModel.FormatIdle(Model.IdleTodayByDevice.GetValueOrDefault(device.DeviceId))</td>
                 <td>
                     <input form="@formId" type="hidden" name="deviceId" value="@device.DeviceId" />

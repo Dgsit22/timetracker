@@ -40,6 +40,34 @@ public class DevicesModel : PageModel
             .ToDictionaryAsync(x => x.DeviceId, x => TimeSpan.FromSeconds(x.TotalSeconds), cancellationToken);
     }
 
+    /// <summary>
+    /// The Agent checks in at least hourly even when the machine is quiet (SyncClient sends an
+    /// empty heartbeat batch), so silence well past that means it is not reporting - stopped,
+    /// powered off, or unable to reach the server. Two hours rather than one avoids calling a
+    /// device offline over a single missed check-in.
+    /// </summary>
+    public const int OfflineAfterHours = 2;
+
+    public static bool IsReporting(Device device) =>
+        DateTimeOffset.UtcNow - device.LastSeenUtc < TimeSpan.FromHours(OfflineAfterHours);
+
+    public static string FormatSilence(Device device)
+    {
+        var silence = DateTimeOffset.UtcNow - device.LastSeenUtc;
+
+        if (silence < TimeSpan.FromHours(OfflineAfterHours))
+        {
+            return "Reporting";
+        }
+
+        if (silence < TimeSpan.FromDays(1))
+        {
+            return $"Silent {(int)silence.TotalHours}h";
+        }
+
+        return $"Silent {(int)silence.TotalDays}d";
+    }
+
     public static string FormatIdle(TimeSpan idle)
     {
         if (idle <= TimeSpan.Zero)

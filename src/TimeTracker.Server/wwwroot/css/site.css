@@ -1289,3 +1289,21 @@ a {
     flex-wrap: wrap;
   }
 }
+
+/* Device reporting state (Devices page). The Agent heartbeats at least hourly, so a device
+   with nothing recent has stopped reporting rather than simply being idle. */
+.device-state {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.device-state-silent {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.status-dot-silent {
+  background: var(--color-danger);
+}

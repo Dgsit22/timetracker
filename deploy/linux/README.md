@@ -96,6 +96,47 @@ docker compose logs -f postgres
 
 ## Backups
 
-The Postgres data directory lives in the `postgres-data` named volume. Back
-it up with `docker exec <postgres-container> pg_dump -U postgres timetracker
-> backup.sql`, or snapshot the volume directly.
+The Postgres data directory lives in the `postgres-data` named volume.
+
+`backup.sh` in this directory dumps the database out of the running container,
+gzips it, and prunes anything older than `KEEP_DAYS` (14 by default):
+
+```
+chmod +x deploy/linux/backup.sh
+sudo BACKUP_DIR=/var/backups/timetracker deploy/linux/backup.sh
+```
+
+Install it as a nightly cron job — 02:30 here, with its output in a log you can
+check after the fact:
+
+```
+sudo crontab -e
+```
+
+```
+30 2 * * * BACKUP_DIR=/var/backups/timetracker KEEP_DAYS=14 /home/dgsadmin/timetracker/deploy/linux/backup.sh >> /var/log/timetracker-backup.log 2>&1
+```
+
+Use the absolute path to wherever the repository actually lives — cron does not
+run from your home directory and has almost none of your shell's environment.
+
+**Restore** into a running stack:
+
+```
+gunzip -c /var/backups/timetracker/timetracker-YYYYMMDD-HHMMSS.sql.gz \
+  | docker compose exec -T postgres psql -U postgres timetracker
+```
+
+Restore into an empty database, not over a populated one — `pg_dump` output
+recreates its tables and will collide with existing ones. To start clean:
+`docker compose down`, `docker volume rm timetracker_postgres-data`,
+`docker compose up -d`, wait for the server to apply its migrations, then pipe
+the dump in.
+
+A backup nobody has restored is a guess. Do one restore into a throwaway
+database now, while it does not matter, rather than finding out during an
+incident.
+
+Note that database size is driven mostly by screenshots, which are stored as
+bytes in the `Screenshots` table — see the retention settings in `.env.example`.
+Dump size follows whatever window you set there.
