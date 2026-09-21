@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TimeTracker">
+    <!--
+        Console favicon: the clock mark from the login card, reduced to what survives at 16px.
+        The ring is bold and near-opaque and the hands are heavy on purpose - at tab size a
+        1px-wide ring and thin hands blur into an unreadable smudge, which is exactly what the
+        first version did.
+
+        The tile carries its own deep-teal background so the mark reads the same against a light
+        or dark browser tab, which is why there is no prefers-color-scheme variant.
+
+        favicon.ico and apple-touch-icon.png are rasterised from this same geometry - keep them
+        in step if the shapes here change.
+
+        Colours are the brand tokens from site.css: ink #013237, accent #FEAE96, cream #FDF6F2.
+    -->
+    <rect width="32" height="32" rx="6.5" fill="#013237" />
+    <circle cx="16" cy="16" r="10" fill="none" stroke="#FDF6F2" stroke-opacity="0.85" stroke-width="2.6" />
+    <!-- Minute hand at twelve, hour hand at four: an asymmetric pair reads as a clock at a
+         glance, where two hands close together blur into a single stroke. -->
+    <path d="M16 16 L16 8.4" stroke="#FDF6F2" stroke-width="3.4" stroke-linecap="round" />
+    <path d="M16 16 L21.5 19" stroke="#FEAE96" stroke-width="3.4" stroke-linecap="round" />
+</svg>
