@@ -1,0 +1,59 @@
+@model TimeTracker.Server.ViewComponents.NotificationsViewModel
+
+<div class="dropdown notif">
+    <button class="notif-btn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+            aria-expanded="false"
+            aria-label="@(Model.UnacknowledgedCount == 0 ? "Alerts, none new" : $"Alerts, {Model.UnacknowledgedCount} new")">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 3.2-1 4.4-1.6 5a.6.6 0 0 0 .4 1h11.4a.6.6 0 0 0 .4-1c-.6-.6-1.6-1.8-1.6-5A4.5 4.5 0 0 0 10 2.5Z" />
+            <path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" />
+        </svg>
+        @if (Model.UnacknowledgedCount > 0)
+        {
+            <span class="notif-badge num" aria-hidden="true">@(Model.UnacknowledgedCount > 9 ? "9+" : Model.UnacknowledgedCount.ToString())</span>
+        }
+    </button>
+
+    <div class="dropdown-menu dropdown-menu-end notif-menu">
+        <div class="notif-head">
+            <span class="notif-title">Alerts</span>
+            @if (Model.Open.Count > 0 && Model.UnacknowledgedCount > 0)
+            {
+                <form method="post" asp-page="/Devices" asp-page-handler="AcknowledgeAlerts" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="notif-dismiss">Mark all as read</button>
+                </form>
+            }
+        </div>
+
+        @if (Model.Open.Count == 0)
+        {
+            <p class="notif-empty">
+                Nothing needs attention. Devices that stop reporting, and agents refused for a bad
+                API key, appear here.
+            </p>
+        }
+        else
+        {
+            <ul class="notif-list">
+                @foreach (var alert in Model.Open)
+                {
+                    <li class="notif-item @(alert.AcknowledgedUtc is null ? "is-new" : "")">
+                        <span class="notif-item-dot notif-@alert.Kind.ToString().ToLowerInvariant()" aria-hidden="true"></span>
+                        <div class="notif-item-body">
+                            <span class="notif-item-title">@alert.Title</span>
+                            <span class="notif-item-detail">@alert.Detail</span>
+                            <span class="notif-item-time">
+                                Since
+                                <span class="num" data-utc="@alert.FirstSeenUtc.ToString("o")" data-utc-format="datetime">@alert.FirstSeenUtc.ToString("d MMM HH:mm")</span>
+                                <span class="tz-label">UTC</span>
+                            </span>
+                        </div>
+                    </li>
+                }
+            </ul>
+            <a class="notif-foot" asp-page="/Devices">Open devices &rarr;</a>
+        }
+    </div>
+</div>

@@ -58,6 +58,11 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton(RetentionOptions.FromConfiguration(builder.Configuration));
 builder.Services.AddHostedService<RetentionService>();
 
+// Alerting: the tracker is a singleton because the ingest filter writes to it from request
+// threads and the monitor reads it on its own timer.
+builder.Services.AddSingleton<IngestRejectionTracker>();
+builder.Services.AddHostedService<AlertMonitor>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())

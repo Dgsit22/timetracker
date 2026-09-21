@@ -1783,3 +1783,320 @@ a {
 .fw-semibold {
   font-weight: 600 !important;
 }
+
+/* --- "View all" on the ranked panels -------------------------------------- */
+
+.act-viewall {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.5rem;
+}
+
+.act-viewall > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.act-viewall > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The arrow is the affordance and the state indicator at once - it turns down
+   when the panel is open, so nothing else has to say so. */
+.act-viewall > summary::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 140ms ease;
+}
+
+.act-viewall[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.act-viewall > summary:hover {
+  color: var(--color-accent-2);
+}
+
+.act-viewall > summary:focus-visible {
+  outline: 2px solid var(--color-accent-2);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* A capped list can still be 50 rows; keep it inside the card. */
+.act-viewall .dash-ranked {
+  max-height: 17rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+/* --- Settings ------------------------------------------------------------- */
+
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.set-wide {
+  grid-column: 1 / -1;
+}
+
+.set-list {
+  margin: 0;
+  padding: 0.25rem 1rem 0.5rem;
+}
+
+.set-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+
+.set-list > div:last-child {
+  border-bottom: 0;
+}
+
+.set-list dt {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.set-list dd {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+/* Explains what the numbers above commit the server to, which is the part an
+   admin actually needs when deciding whether to change them. */
+.set-note {
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.set-note code {
+  font-size: 0.95em;
+  color: var(--color-ink);
+  background: var(--color-bg);
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+}
+
+.set-note a {
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.set-warn {
+  color: var(--tone-bad);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .set-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Alerts bell ---------------------------------------------------------- */
+
+.notif {
+  position: relative;
+}
+
+.notif-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.notif-btn svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.notif-btn:hover {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-ink);
+}
+
+.notif-btn:focus-visible {
+  outline: 2px solid var(--color-accent-2);
+  outline-offset: 1px;
+  color: var(--color-ink);
+}
+
+/* Count, not a bare dot: "3 machines stopped reporting" and "one did" are
+   different situations and the header is where that distinction is cheapest. */
+.notif-badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--tone-bad);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.notif-menu {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -22px rgba(1, 50, 55, 0.45), var(--shadow-md);
+}
+
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notif-title {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--color-ink);
+}
+
+.notif-dismiss {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.notif-dismiss:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
+.notif-empty {
+  margin: 0;
+  padding: 0.9rem 0.85rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.notif-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.notif-item {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+
+.notif-item:last-child {
+  border-bottom: 0;
+}
+
+/* Unread carries a tint rather than a second badge - the row is already short,
+   and one signal per state is enough. */
+.notif-item.is-new {
+  background: color-mix(in srgb, var(--color-cream) 45%, transparent);
+}
+
+.notif-item-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.3rem;
+  border-radius: 50%;
+  flex: none;
+  background: var(--color-text-muted);
+}
+
+.notif-devicesilent { background: var(--tone-bad); }
+.notif-ingestkeyrejected { background: var(--time-idle); }
+
+.notif-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.notif-item-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--color-ink);
+}
+
+.notif-item-detail {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.notif-item-time {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.notif-foot {
+  display: block;
+  padding: 0.6rem 0.85rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.notif-foot:hover {
+  background: var(--color-bg);
+}

@@ -18,6 +18,7 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<ExclusionRule> ExclusionRules => Set<ExclusionRule>();
+    public DbSet<Alert> Alerts => Set<Alert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,15 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Group>().HasKey(e => e.GroupId);
         modelBuilder.Entity<GroupMember>().HasKey(e => new { e.GroupId, e.UserName });
         modelBuilder.Entity<ExclusionRule>().HasKey(e => e.ExclusionRuleId);
+
+        modelBuilder.Entity<Alert>(e =>
+        {
+            e.HasKey(x => x.AlertId);
+            // Every read is "the open ones, newest first", and the monitor matches on kind+scope
+            // to decide between raising a new alert and refreshing the one already there.
+            e.HasIndex(x => new { x.ResolvedUtc, x.LastSeenUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.Kind, x.Scope, x.ResolvedUtc });
+        });
 
         // Every read path filters by device or user and sorts by time descending - Activity,
         // Dashboard, Reports and the retention sweep all do it. Without these, Postgres sorts

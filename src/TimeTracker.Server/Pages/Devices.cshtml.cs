@@ -110,6 +110,21 @@ public class DevicesModel : PageModel
         return RedirectToPage();
     }
 
+    /// <summary>
+    /// Marks every open alert as read. Acknowledging is not resolving: the alert stays listed
+    /// until the condition itself clears, it just stops counting against the bell.
+    /// </summary>
+    public async Task<IActionResult> OnPostAcknowledgeAlertsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await _db.Alerts
+            .Where(a => a.ResolvedUtc == null && a.AcknowledgedUtc == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(a => a.AcknowledgedUtc, now), cancellationToken);
+
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostTogglePinAsync(Guid deviceId, CancellationToken cancellationToken)
     {
         var device = await _db.Devices.FirstOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
