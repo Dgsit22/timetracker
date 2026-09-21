@@ -36,6 +36,14 @@ services:
       Admin__Email: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       Agent__ApiKey: ${AGENT_API_KEY:?set AGENT_API_KEY in .env}
+      # Retention: screenshots are stored as bytes in the database, so without a window they
+      # grow without limit. Defaults apply when these are unset; see .env.example.
+      Retention__Enabled: ${RETENTION_ENABLED:-true}
+      Retention__ScreenshotDays: ${RETENTION_SCREENSHOT_DAYS:-30}
+      Retention__EventDays: ${RETENTION_EVENT_DAYS:-180}
+      # EF logs every statement with its parameters at Information, which buries the app's own
+      # lines and grows the log volume fast.
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
     volumes:
       - dataprotection-keys:/app/keys
       # The container runs as non-root (UID 1654), so server.pfx on the host must be readable by

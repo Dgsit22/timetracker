@@ -53,6 +53,11 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Admin));
 });
 
+// Resolved here rather than inside the service so a bad window fails the build of the host, at
+// startup, instead of silently doing nothing (or deleting everything) a day later.
+builder.Services.AddSingleton(RetentionOptions.FromConfiguration(builder.Configuration));
+builder.Services.AddHostedService<RetentionService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
