@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -51,6 +52,11 @@ public class ActivityModel : PageModel
     // auto-submit once any filter is touched) disambiguates: absent -> default to all types.
     [BindProperty(SupportsGet = true)]
     public bool TypesFilterApplied { get; set; }
+
+    // The page shows a capped slice; the CSV handler raises both caps before running the same
+    // query, so an export is the whole filtered range rather than only what is on screen.
+    private int _perTypeLimit = 100;
+    private int _rowCap = 200;
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -215,7 +221,7 @@ public class ActivityModel : PageModel
             ? (Types ?? Array.Empty<string>()).ToHashSet()
             : EventTypes.ToHashSet();
 
-        const int perTypeLimit = 100;
+        var perTypeLimit = _perTypeLimit;
 
         var rows = new List<ActivityRow>();
 
@@ -242,7 +248,10 @@ public class ActivityModel : PageModel
             // The Agent flushes an ongoing idle stretch every minute so totals advance live, which
             // made a 20-minute absence twenty near-identical rows. Contiguous chunks are joined back
             // into the one span they describe; the extra fetch headroom keeps the cap per span.
-            var idleChunks = await idle.OrderByDescending(e => e.StartedAtUtc).Take(perTypeLimit * 30)
+            // Headroom for the per-minute flush chunks, but bounded: at export caps the old
+            // multiplier alone would pull 150k rows into memory to merge.
+            var idleChunks = await idle.OrderByDescending(e => e.StartedAtUtc)
+                .Take(Math.Min(perTypeLimit * 30, 20000))
                 .Select(e => new { e.UserName, e.DeviceId, e.StartedAtUtc, e.EndedAtUtc, e.IdleThresholdSeconds })
                 .ToListAsync(cancellationToken);
 
@@ -287,7 +296,42 @@ public class ActivityModel : PageModel
                 .ToListAsync(cancellationToken));
         }
 
-        Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(200).ToList();
+        Rows = rows.OrderByDescending(r => r.TimestampUtc).Take(_rowCap).ToList();
+    }
+
+    /// <summary>
+    /// Exports exactly what the current filters describe - same date range, users, devices and
+    /// event types as the page, just without its display cap.
+    /// </summary>
+    public async Task<IActionResult> OnGetExportAsync(CancellationToken cancellationToken)
+    {
+        _perTypeLimit = 5000;
+        _rowCap = 20000;
+
+        await OnGetAsync(cancellationToken);
+
+        var machineNames = DeviceSummaries.ToDictionary(d => d.DeviceId, d => d.MachineName);
+
+        var csv = new StringBuilder();
+        csv.AppendLine(Csv.Line("Timestamp (UTC)", "Type", "User", "Machine", "Details",
+            "Duration (s)", "Ended (UTC)"));
+
+        foreach (var row in Rows)
+        {
+            csv.AppendLine(Csv.Line(
+                row.TimestampUtc,
+                row.Kind,
+                row.UserName,
+                machineNames.GetValueOrDefault(row.DeviceId, row.DeviceId.ToString()),
+                row.Details,
+                row.DurationSeconds,
+                row.EndUtc));
+        }
+
+        var from = FromDate?.ToString("yyyyMMdd") ?? "all";
+        var to = ToDate?.ToString("yyyyMMdd") ?? "all";
+
+        return File(Csv.ToUtf8WithBom(csv), "text/csv", $"timetracker-activity-{from}-{to}.csv");
     }
 
     private static string DescribeBreak(SessionBreakReason reason, SessionBreakEndReason? endReason, double? idleSecondsAtStart)

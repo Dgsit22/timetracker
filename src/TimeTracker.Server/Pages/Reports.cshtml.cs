@@ -50,13 +50,13 @@ public class ReportsModel : PageModel
         await LoadAsync(cancellationToken);
 
         var csv = new StringBuilder();
-        csv.AppendLine("User,Active Time (s),Idle Time (s),Session Breaks");
+        csv.AppendLine(Csv.Line("User", "Active Time (s)", "Idle Time (s)", "Session Breaks"));
         foreach (var row in Rows)
         {
-            csv.AppendLine($"{row.UserName},{row.ActiveSeconds:F0},{row.IdleSeconds:F0},{row.SessionBreakCount}");
+            csv.AppendLine(Csv.Line(row.UserName, row.ActiveSeconds, row.IdleSeconds, row.SessionBreakCount));
         }
 
-        return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "timetracker-report.csv");
+        return File(Csv.ToUtf8WithBom(csv), "text/csv", "timetracker-report.csv");
     }
 
     private async Task LoadAsync(CancellationToken cancellationToken)
