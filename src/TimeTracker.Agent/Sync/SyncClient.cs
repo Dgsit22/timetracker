@@ -5,7 +5,9 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
+using TimeTracker.Agent.Diagnostics;
 using TimeTracker.Agent.Storage;
+using TimeTracker.Shared.Diagnostics;
 using TimeTracker.Shared.Sync;
 
 namespace TimeTracker.Agent.Sync;
@@ -32,6 +34,7 @@ public class SyncClient : BackgroundService
     private readonly AgentOptions _options;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<SyncClient> _logger;
+    private readonly AgentHealth _health;
     private DateTimeOffset? _lastHeartbeatUtc;
 
     public SyncClient(
@@ -39,8 +42,10 @@ public class SyncClient : BackgroundService
         DeviceIdentity deviceIdentity,
         IOptions<AgentOptions> options,
         IHttpClientFactory httpClientFactory,
+        AgentHealth health,
         ILogger<SyncClient> logger)
     {
+        _health = health;
         _store = store;
         _deviceIdentity = deviceIdentity;
         _options = options.Value;
@@ -61,6 +66,15 @@ public class SyncClient : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Sync attempt failed");
+
+                var unreachable = ex is HttpRequestException or TaskCanceledException;
+                await _health.ReportAsync(
+                    unreachable ? AgentLogLevel.Warning : AgentLogLevel.Error,
+                    "SyncClient",
+                    unreachable ? "Cannot reach the server" : "Sync attempt failed",
+                    ex.Message,
+                    stoppingToken,
+                    serverUnreachable: unreachable);
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
@@ -87,7 +101,8 @@ public class SyncClient : BackgroundService
             batch.IdlePeriods,
             batch.UrlVisits,
             batch.Screenshots.Select(s => s.Dto).ToList(),
-            batch.SessionBreaks);
+            batch.SessionBreaks,
+            batch.Diagnostics);
 
         using var content = new MultipartFormDataContent
         {
@@ -118,6 +133,26 @@ public class SyncClient : BackgroundService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Sync failed with status {StatusCode}", response.StatusCode);
+
+            var message = response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.Unauthorized =>
+                    "Server refused this Agent's API key",
+                System.Net.HttpStatusCode.Forbidden =>
+                    "Server rejected this device's token",
+                System.Net.HttpStatusCode.ServiceUnavailable =>
+                    "Server has no agent API key configured",
+                _ => $"Server returned {(int)response.StatusCode} {response.StatusCode}",
+            };
+
+            var detail = response.StatusCode is System.Net.HttpStatusCode.Unauthorized
+                ? "AGENTAPIKEY on this machine must match AGENT_API_KEY on the server exactly. Events stay queued locally until it does."
+                : $"POST /api/ingest/sync returned {(int)response.StatusCode}.";
+
+            // Not marked unreachable: the server answered. This is a configuration fault, and
+            // calling it "offline" in the tray would send someone to check the network instead.
+            await _health.ReportAsync(
+                AgentLogLevel.Error, "SyncClient", message, detail, cancellationToken);
             return;
         }
 
@@ -139,6 +174,8 @@ public class SyncClient : BackgroundService
 
         var toRemove = result.AcceptedEventIds.Concat(result.Rejected.Select(r => r.EventId));
         await _store.RemoveEventsAsync(toRemove, cancellationToken);
+
+        _health.RecordSyncSuccess(await _store.CountPendingAsync(cancellationToken));
 
         if (batch.IsEmpty)
         {

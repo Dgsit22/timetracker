@@ -139,6 +139,25 @@ public class AlertMonitor : BackgroundService
                     _logger.LogWarning(
                         "Device {MachineName} ({DeviceId}) has not reported for {Since}",
                         device.MachineName, device.DeviceId, since);
+
+                    // Also written to the agent log, because an Agent that cannot reach the
+                    // server cannot report its own silence - that entry has to come from this
+                    // side, or the log simply stops with no explanation of why.
+                    db.AgentLogs.Add(new AgentLogEntry
+                    {
+                        EntryId = Guid.NewGuid(),
+                        DeviceId = device.DeviceId,
+                        MachineName = device.MachineName,
+                        UserName = string.Empty,
+                        Level = Shared.Diagnostics.AgentLogLevel.Warning,
+                        Source = "Server",
+                        Message = "No logs or events received from this device",
+                        Detail = $"Last check-in was {device.LastSeenUtc:yyyy-MM-dd HH:mm} UTC, {since} ago. "
+                            + "The Agent heartbeats at least hourly when healthy, so this gap means it is stopped, "
+                            + "the machine is off, or it cannot reach this server.",
+                        OccurredAtUtc = now,
+                        ReceivedAtUtc = now,
+                    });
                 }
                 else
                 {
@@ -150,6 +169,20 @@ public class AlertMonitor : BackgroundService
             {
                 existing.ResolvedUtc = now;
                 _logger.LogInformation("Device {MachineName} is reporting again", device.MachineName);
+
+                db.AgentLogs.Add(new AgentLogEntry
+                {
+                    EntryId = Guid.NewGuid(),
+                    DeviceId = device.DeviceId,
+                    MachineName = device.MachineName,
+                    UserName = string.Empty,
+                    Level = Shared.Diagnostics.AgentLogLevel.Info,
+                    Source = "Server",
+                    Message = "Device started reporting again",
+                    Detail = $"Silent from {existing.FirstSeenUtc:yyyy-MM-dd HH:mm} to {now:yyyy-MM-dd HH:mm} UTC.",
+                    OccurredAtUtc = now,
+                    ReceivedAtUtc = now,
+                });
             }
         }
     }

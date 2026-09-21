@@ -1,0 +1,152 @@
+@page
+@using TimeTracker.Shared.Diagnostics
+@model LogsModel
+@{
+    ViewData["Title"] = "Agent logs";
+
+    var deviceNames = Model.KnownDevices.ToDictionary(d => d.DeviceId, d => d.MachineName);
+}
+
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-heading">Agent logs</h1>
+        <p class="page-subtitle">
+            Faults reported by each Agent, and the ones this server noticed on their behalf when an
+            Agent went quiet and could not report anything itself.
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <span class="page-head-scope">
+            <span class="num">@Model.ErrorCount</span> errors
+            <span class="page-head-dot" aria-hidden="true"></span>
+            <span class="num">@Model.WarningCount</span> warnings
+            <span class="page-head-dot" aria-hidden="true"></span>
+            last 24h
+        </span>
+    </div>
+</header>
+
+<form method="get" class="filter-bar mb-4">
+    <div class="dash-filters p-0 border-0">
+        <div class="dash-field">
+            <label for="DeviceId">Device</label>
+            <select class="form-select form-select-sm" id="DeviceId" name="DeviceId" onchange="this.form.submit()">
+                <option value="">All devices</option>
+                @foreach (var device in Model.KnownDevices)
+                {
+                    <option value="@device.DeviceId" selected="@(device.DeviceId == Model.DeviceId)">@device.MachineName</option>
+                }
+            </select>
+        </div>
+        <div class="dash-field">
+            <label for="Level">Severity</label>
+            <select class="form-select form-select-sm" id="Level" name="Level" onchange="this.form.submit()">
+                <option value="">Everything</option>
+                <option value="@((int)AgentLogLevel.Warning)" selected="@(Model.Level == AgentLogLevel.Warning)">Warnings and errors</option>
+                <option value="@((int)AgentLogLevel.Error)" selected="@(Model.Level == AgentLogLevel.Error)">Errors only</option>
+            </select>
+        </div>
+        <div class="dash-field">
+            <label for="Source">Source</label>
+            <select class="form-select form-select-sm" id="Source" name="Source" onchange="this.form.submit()">
+                <option value="">All sources</option>
+                @foreach (var source in Model.KnownSources)
+                {
+                    <option value="@source" selected="@(source == Model.Source)">@source</option>
+                }
+            </select>
+        </div>
+        <div class="dash-field">
+            <label for="FromDate">From</label>
+            <input type="date" class="form-control form-control-sm" id="FromDate" name="FromDate"
+                   value="@Model.FromDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+        <div class="dash-field">
+            <label for="ToDate">To</label>
+            <input type="date" class="form-control form-control-sm" id="ToDate" name="ToDate"
+                   value="@Model.ToDate?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+        </div>
+    </div>
+</form>
+
+<section class="card" aria-labelledby="logs-heading">
+    <div class="card-header dash-card-head">
+        <h2 id="logs-heading" class="dash-section-title">
+            Entries <span class="act-count num">@Model.TotalMatching</span>
+        </h2>
+        <div class="act-log-meta">
+            @if (Model.IsTruncated)
+            {
+                <span class="dash-note">Showing the newest @Model.Entries.Count</span>
+            }
+            <span class="dash-note">Times in <span class="tz-label">UTC</span></span>
+        </div>
+    </div>
+
+    @if (Model.Entries.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="fw-semibold">Nothing logged here</div>
+            <div class="small">
+                Agents report faults as they happen, and this server records any device that stops
+                checking in for more than two hours. An empty list means neither has occurred.
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 dash-agents act-log">
+                <thead>
+                    <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Level</th>
+                        <th scope="col">Source</th>
+                        <th scope="col">What happened</th>
+                        <th scope="col">Device</th>
+                        <th scope="col" class="text-end">Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.Entries)
+                    {
+                        <tr>
+                            <td class="num text-nowrap"
+                                data-utc="@entry.OccurredAtUtc.ToString("o")" data-utc-format="datetime-s">
+                                @entry.OccurredAtUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                            </td>
+                            <td class="text-nowrap">
+                                <span class="log-level @LogsModel.LevelClass(entry.Level)">@entry.Level</span>
+                            </td>
+                            <td class="text-nowrap">@entry.Source</td>
+                            <td class="act-details">
+                                <span class="log-message">@entry.Message</span>
+                                @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                {
+                                    <details class="log-detail">
+                                        <summary>Details</summary>
+                                        <pre>@entry.Detail</pre>
+                                    </details>
+                                }
+                                @if (entry.ReceivedAtUtc - entry.OccurredAtUtc > TimeSpan.FromMinutes(5))
+                                {
+                                    @* The delay is evidence in itself: the report sat in the
+                                       Agent's outbox until it could reach the server again. *@
+                                    <span class="log-delayed">
+                                        delivered
+                                        <span class="num">@ActivityAggregation.FormatDuration((entry.ReceivedAtUtc - entry.OccurredAtUtc).TotalSeconds)</span>
+                                        later
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-nowrap">
+                                @(entry.DeviceId is { } id && deviceNames.TryGetValue(id, out var name) ? name : entry.MachineName)
+                            </td>
+                            <td class="num text-end">@(entry.OccurrenceCount > 1 ? $"×{entry.OccurrenceCount}" : "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

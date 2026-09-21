@@ -2100,3 +2100,74 @@ a {
 .notif-foot:hover {
   background: var(--color-bg);
 }
+
+/* --- Agent logs ----------------------------------------------------------- */
+
+.log-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.log-level::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.log-level.is-error { color: var(--tone-bad); }
+.log-level.is-warning { color: #9A5A1E; }
+.log-level.is-info { color: var(--color-text-muted); }
+
+.log-message {
+  display: block;
+  color: var(--color-text);
+}
+
+/* Stack traces collapse: they are the reason the row exists when you need them
+   and noise in every row when you do not. */
+.log-detail > summary {
+  display: inline-block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.log-detail > summary:hover {
+  color: var(--color-ink);
+}
+
+.log-detail pre {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.6rem;
+  max-height: 14rem;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text);
+}
+
+/* The delivery gap is evidence: this report waited in the Agent's outbox. */
+.log-delayed {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-cream);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}

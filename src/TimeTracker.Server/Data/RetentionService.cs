@@ -99,7 +99,13 @@ public class RetentionService : BackgroundService
         var sessionBreaks = await DeleteInBatchesAsync(
             db, () => db.SessionBreaks.Where(e => e.BreakStartUtc < eventCutoff), cancellationToken);
 
-        var total = screenshots + appUsage + urlVisits + idlePeriods + sessionBreaks;
+        // Agent logs age out on the event window too. They are small individually, but a device
+        // stuck in a failure loop writes them steadily, and an unswept log is how this table
+        // becomes the next thing nobody noticed growing.
+        var agentLogs = await DeleteInBatchesAsync(
+            db, () => db.AgentLogs.Where(e => e.OccurredAtUtc < eventCutoff), cancellationToken);
+
+        var total = screenshots + appUsage + urlVisits + idlePeriods + sessionBreaks + agentLogs;
 
         if (total == 0)
         {
@@ -109,8 +115,9 @@ public class RetentionService : BackgroundService
 
         _logger.LogInformation(
             "Retention sweep deleted {Total} rows: {Screenshots} screenshots, {AppUsage} app usage, "
-            + "{UrlVisits} url visits, {IdlePeriods} idle periods, {SessionBreaks} session breaks",
-            total, screenshots, appUsage, urlVisits, idlePeriods, sessionBreaks);
+            + "{UrlVisits} url visits, {IdlePeriods} idle periods, {SessionBreaks} session breaks, "
+            + "{AgentLogs} agent log entries",
+            total, screenshots, appUsage, urlVisits, idlePeriods, sessionBreaks, agentLogs);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows.Forms;
+using TimeTracker.Agent.Diagnostics;
 
 namespace TimeTracker.Agent;
 
@@ -17,10 +18,13 @@ public sealed class AgentTrayIcon : IDisposable
     private readonly ContextMenuStrip _menu;
     private readonly Control _marshal;
     private readonly string _serverUrl;
+    private readonly AgentHealth? _health;
+    private bool _warnedOffline;
 
-    public AgentTrayIcon(string serverUrl)
+    public AgentTrayIcon(string serverUrl, AgentHealth? health = null)
     {
         _serverUrl = serverUrl;
+        _health = health;
 
         // A hidden control purely to get back onto this thread from elsewhere. The context menu
         // cannot serve: its handle does not exist until the menu is first shown, and BeginInvoke
@@ -30,6 +34,13 @@ public sealed class AgentTrayIcon : IDisposable
         _ = _marshal.Handle;
 
         var menu = _menu = new ContextMenuStrip();
+
+        // First item and disabled: it is a status line, not a command. Updated from AgentHealth
+        // so the menu answers "is it working" before anyone has to click anything.
+        _statusItem = new ToolStripMenuItem("Checking...") { Enabled = false };
+        menu.Items.Add(_statusItem);
+        menu.Items.Add(new ToolStripSeparator());
+
         menu.Items.Add("Settings...", null, OnSettings);
         menu.Items.Add("Test Connection", null, OnTestConnection);
         menu.Items.Add("Open Server", null, OnOpenServer);
@@ -45,7 +56,74 @@ public sealed class AgentTrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
+
+        if (_health is not null)
+        {
+            // Marshalled: AgentHealth raises this from whichever background thread hit the fault,
+            // and NotifyIcon has the same thread affinity as any other control.
+            _health.Changed += OnHealthChanged;
+            ApplyHealth();
+        }
     }
+
+    private readonly ToolStripMenuItem _statusItem;
+
+    private void OnHealthChanged()
+    {
+        try
+        {
+            _marshal.BeginInvoke(new Action(ApplyHealth));
+        }
+        catch (Exception)
+        {
+            // Shutting down; the icon is going away regardless.
+        }
+    }
+
+    private void ApplyHealth()
+    {
+        if (_health is null)
+        {
+            return;
+        }
+
+        var queued = _health.QueuedEventCount;
+
+        if (_health.IsServerReachable && _health.LastErrorMessage is null)
+        {
+            var since = _health.LastSuccessfulSyncUtc is { } last
+                ? $"last sync {last.ToLocalTime():HH:mm}"
+                : "starting up";
+            _statusItem.Text = $"Reporting normally - {since}";
+            // NotifyIcon.Text is capped at 63 characters by Windows and throws above it.
+            SetTooltip($"TimeTracker Agent - {since}");
+            _warnedOffline = false;
+            return;
+        }
+
+        var problem = _health.LastErrorMessage ?? "Cannot reach the server";
+        _statusItem.Text = queued > 0
+            ? $"{problem} - {queued} events waiting"
+            : problem;
+
+        SetTooltip($"TimeTracker Agent - {problem}");
+
+        // One balloon per outage, not one per failed attempt: the sync loop retries every 30
+        // seconds, and a notification that often is an argument for uninstalling the Agent.
+        if (!_warnedOffline)
+        {
+            _warnedOffline = true;
+            _notifyIcon.BalloonTipTitle = "TimeTracker Agent";
+            _notifyIcon.BalloonTipText = queued > 0
+                ? $"{problem}. {queued} events are waiting and will be sent when it reconnects."
+                : $"{problem}. Nothing is lost - events are kept on this machine until it reconnects.";
+            _notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+            _notifyIcon.ShowBalloonTip(10000);
+        }
+    }
+
+    private void SetTooltip(string text) =>
+        _notifyIcon.Text = text.Length > 63 ? text[..60] + "..." : text;
 
     // WPF needs an Application instance for resource/dispatcher lookups to work (e.g. the
     // DynamicResource bindings in SettingsWindow.xaml), even though nothing here calls its
@@ -170,6 +248,11 @@ public sealed class AgentTrayIcon : IDisposable
 
     public void Dispose()
     {
+        if (_health is not null)
+        {
+            _health.Changed -= OnHealthChanged;
+        }
+
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _marshal.Dispose();

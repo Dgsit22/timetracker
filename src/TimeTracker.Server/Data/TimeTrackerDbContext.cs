@@ -19,6 +19,7 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<ExclusionRule> ExclusionRules => Set<ExclusionRule>();
     public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<AgentLogEntry> AgentLogs => Set<AgentLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,15 @@ public class TimeTrackerDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Group>().HasKey(e => e.GroupId);
         modelBuilder.Entity<GroupMember>().HasKey(e => new { e.GroupId, e.UserName });
         modelBuilder.Entity<ExclusionRule>().HasKey(e => e.ExclusionRuleId);
+
+        modelBuilder.Entity<AgentLogEntry>(e =>
+        {
+            e.HasKey(x => x.EntryId);
+            // The log is read newest-first, usually narrowed to one device or one severity.
+            e.HasIndex(x => x.OccurredAtUtc).IsDescending();
+            e.HasIndex(x => new { x.DeviceId, x.OccurredAtUtc }).IsDescending(false, true);
+            e.HasIndex(x => new { x.Level, x.OccurredAtUtc }).IsDescending(false, true);
+        });
 
         modelBuilder.Entity<Alert>(e =>
         {

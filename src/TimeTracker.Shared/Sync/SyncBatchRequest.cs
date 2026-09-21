@@ -1,3 +1,4 @@
+using TimeTracker.Shared.Diagnostics;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Shared.Sync;
@@ -16,4 +17,7 @@ public record SyncBatchRequest(
     List<IdlePeriodEventDto> IdlePeriods,
     List<UrlVisitEventDto> UrlVisits,
     List<ScreenshotEventDto> Screenshots,
-    List<SessionBreakEventDto> SessionBreaks);
+    List<SessionBreakEventDto> SessionBreaks,
+    // Optional and last so a server running this contract still accepts batches from an Agent
+    // built before diagnostics existed - those simply arrive without the field.
+    List<AgentLogDto>? Diagnostics = null);

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TimeTracker.Server.Data;
 using TimeTracker.Shared.Devices;
+using TimeTracker.Shared.Diagnostics;
 using TimeTracker.Shared.Events;
 using TimeTracker.Shared.Sync;
 
@@ -34,6 +35,12 @@ public static class IngestEndpoints
     private const string ScreenshotContentType = "image/png";
 
     private static readonly byte[] PngSignature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+    /// <summary>
+    /// Column widths are a contract with the database, and this text comes from another machine.
+    /// </summary>
+    private static string Trim(string value, int max) =>
+        value.Length <= max ? value : value[..max];
 
     private static bool IsPng(byte[] bytes) =>
         bytes.Length >= PngSignature.Length && bytes.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature);
@@ -107,6 +114,48 @@ public static class IngestEndpoints
 
         var accepted = new List<Guid>();
         var rejected = new List<SyncErrorDto>();
+
+        // Diagnostics are accepted regardless of capture policy. Turning off screenshots is a
+        // privacy decision about what the Agent watches; it says nothing about whether the Agent
+        // may report that it is broken, and a device whose reports were dropped by policy would
+        // fail silently in exactly the way this feature exists to prevent.
+        if (batch.Diagnostics is { Count: > 0 } diagnostics)
+        {
+            // Bounded: this arrives from a machine, and a bug in an Agent's own error path could
+            // otherwise push an unbounded number of rows per sync.
+            foreach (var dto in diagnostics.Take(200))
+            {
+                if (await db.AgentLogs.AnyAsync(e => e.EntryId == dto.EventId, cancellationToken))
+                {
+                    accepted.Add(dto.EventId);
+                    continue;
+                }
+
+                db.AgentLogs.Add(new AgentLogEntry
+                {
+                    EntryId = dto.EventId,
+                    DeviceId = batch.DeviceId,
+                    MachineName = batch.MachineName,
+                    UserName = batch.UserName,
+                    Level = dto.Level,
+                    Source = Trim(dto.Source, 64),
+                    Message = Trim(dto.Message, 300),
+                    Detail = dto.Detail is null ? null : Trim(dto.Detail, 4000),
+                    OccurrenceCount = dto.OccurrenceCount < 1 ? 1 : dto.OccurrenceCount,
+                    OccurredAtUtc = dto.OccurredAtUtc,
+                    ReceivedAtUtc = DateTimeOffset.UtcNow,
+                });
+
+                accepted.Add(dto.EventId);
+            }
+
+            if (diagnostics.Count > 0)
+            {
+                logger.LogInformation(
+                    "Agent {MachineName} reported {Count} diagnostic entr(ies)",
+                    batch.MachineName, Math.Min(diagnostics.Count, 200));
+            }
+        }
 
         if (device.CaptureAppUsage)
         {

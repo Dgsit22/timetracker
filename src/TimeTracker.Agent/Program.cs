@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using TimeTracker.Agent;
 using TimeTracker.Agent.Configuration;
+using TimeTracker.Agent.Diagnostics;
 using TimeTracker.Agent.Storage;
 using TimeTracker.Agent.Sync;
 using TimeTracker.Agent.Tracking;
@@ -104,6 +105,10 @@ builder.Services.AddHttpClient("TimeTrackerServer", (sp, client) =>
     }
 });
 
+// Singleton: the tray reads the current state from the same instance the background services
+// report faults into.
+builder.Services.AddSingleton<AgentHealth>();
+
 builder.Services.AddHostedService<ActivityTracker>();
 builder.Services.AddHostedService<IdleTracker>();
 builder.Services.AddHostedService<SessionBreakTracker>();
@@ -119,12 +124,13 @@ await host.StartAsync();
 // own explicitly-created STA thread rather than assuming the top-level Main's own
 // apartment state, so this doesn't depend on SDK-inferred [STAThread] behavior.
 var serverUrl = ConnectionTest.GetConfiguredServerUrl();
+var agentHealth = host.Services.GetRequiredService<AgentHealth>();
 AgentTrayIcon? trayIconRef = null;
 using var trayReady = new ManualResetEventSlim();
 
 var trayThread = new Thread(() =>
 {
-    using var trayIcon = new AgentTrayIcon(serverUrl);
+    using var trayIcon = new AgentTrayIcon(serverUrl, agentHealth);
     trayIconRef = trayIcon;
     trayReady.Set();
     Application.Run();

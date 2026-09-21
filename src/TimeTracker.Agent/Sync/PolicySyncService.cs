@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
+using TimeTracker.Agent.Diagnostics;
+using TimeTracker.Shared.Diagnostics;
 using TimeTracker.Shared.Devices;
 
 namespace TimeTracker.Agent.Sync;
@@ -15,6 +17,7 @@ public class PolicySyncService : BackgroundService
     private readonly DeviceIdentity _deviceIdentity;
     private readonly AgentOptions _options;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AgentHealth _health;
     private readonly ILogger<PolicySyncService> _logger;
 
     public PolicySyncService(
@@ -22,8 +25,10 @@ public class PolicySyncService : BackgroundService
         DeviceIdentity deviceIdentity,
         IOptions<AgentOptions> options,
         IHttpClientFactory httpClientFactory,
+        AgentHealth health,
         ILogger<PolicySyncService> logger)
     {
+        _health = health;
         _cache = cache;
         _deviceIdentity = deviceIdentity;
         _options = options.Value;
@@ -51,6 +56,15 @@ public class PolicySyncService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to refresh capture policy; keeping previous policy");
+
+                // Worth reporting on its own: capture policy going stale means the console's
+                // per-device switches silently stop taking effect on this machine.
+                await _health.ReportAsync(
+                    AgentLogLevel.Warning,
+                    "PolicySync",
+                    "Could not refresh capture policy",
+                    ex.Message,
+                    stoppingToken);
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));

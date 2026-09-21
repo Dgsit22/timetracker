@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using TimeTracker.Agent.Configuration;
+using TimeTracker.Shared.Diagnostics;
 using TimeTracker.Shared.Events;
 
 namespace TimeTracker.Agent.Storage;
@@ -61,6 +62,9 @@ public class SqliteEventStore : IEventStore
     public Task AddSessionBreakAsync(SessionBreakEventDto evt, CancellationToken cancellationToken) =>
         InsertAsync(evt.EventId, "SessionBreak", evt, cancellationToken);
 
+    public Task AddDiagnosticAsync(AgentLogDto entry, CancellationToken cancellationToken) =>
+        InsertAsync(entry.EventId, "Diagnostic", entry, cancellationToken);
+
     public async Task AddScreenshotAsync(ScreenshotEventDto evt, byte[] imageBytes, CancellationToken cancellationToken)
     {
         var imagePath = Path.Combine(_screenshotDirectory, $"{evt.EventId}.png");
@@ -75,6 +79,7 @@ public class SqliteEventStore : IEventStore
         var urlVisits = new List<UrlVisitEventDto>();
         var sessionBreaks = new List<SessionBreakEventDto>();
         var screenshots = new List<PendingScreenshot>();
+        var diagnostics = new List<AgentLogDto>();
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -108,6 +113,9 @@ public class SqliteEventStore : IEventStore
                 case "SessionBreak":
                     sessionBreaks.Add(JsonSerializer.Deserialize<SessionBreakEventDto>(payloadJson)!);
                     break;
+                case "Diagnostic":
+                    diagnostics.Add(JsonSerializer.Deserialize<AgentLogDto>(payloadJson)!);
+                    break;
                 case "Screenshot":
                     var dto = JsonSerializer.Deserialize<ScreenshotEventDto>(payloadJson)!;
                     screenshots.Add(new PendingScreenshot(dto, Path.Combine(_screenshotDirectory, $"{eventId}.png")));
@@ -115,7 +123,17 @@ public class SqliteEventStore : IEventStore
             }
         }
 
-        return new PendingBatch(appUsageEvents, idlePeriods, urlVisits, sessionBreaks, screenshots);
+        return new PendingBatch(appUsageEvents, idlePeriods, urlVisits, sessionBreaks, screenshots, diagnostics);
+    }
+
+    public async Task<int> CountPendingAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM OutboxEvents;";
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
 
     public async Task RemoveEventsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken)
