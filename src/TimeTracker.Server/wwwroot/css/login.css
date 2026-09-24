@@ -45,12 +45,12 @@
   background:
     linear-gradient(
       180deg,
-      #FFFCF9 0%,
-      #FEF4EC 30%,
-      #FDE7DA 54%,
-      #FCD3BC 74%,
-      #FBBF9F 90%,
-      #F9B294 100%
+      #FFFFF0 0%,
+      #FFF8E4 30%,
+      #FFF0D2 54%,
+      #FDD9A0 74%,
+      #FCB85B 90%,
+      #FB9824 100%
     );
 }
 
@@ -116,14 +116,11 @@
   position: relative;
   padding: 2.25rem 2rem 1.75rem;
   border-radius: 24px;
-  background: rgba(255, 253, 251, 0.86);
-  backdrop-filter: blur(22px) saturate(1.35);
-  -webkit-backdrop-filter: blur(22px) saturate(1.35);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 32px 64px -32px rgba(1, 50, 55, 0.45),
-    0 8px 20px -12px rgba(1, 50, 55, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* Was glass over a stack of shadows. This system has no elevation layer, so the
+     card is a plain surface on a hairline - it sits on the scene rather than over it. */
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
   animation: card-rise 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -153,7 +150,7 @@
 .login-title {
   margin: 1.5rem 0 0.375rem;
   font-size: 1.75rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: var(--color-ink);
@@ -165,7 +162,7 @@
   font-size: 0.875rem;
   line-height: 1.5;
   /* The shared muted token lands at 4.42:1 here - just under the floor. */
-  color: #5F6E6C;
+  color: #6B5B50;
   text-wrap: pretty;
 }
 
@@ -207,7 +204,6 @@
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: inset 0 1px 2px rgba(1, 50, 55, 0.04);
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
@@ -219,7 +215,7 @@
 .login-card .form-control::placeholder {
   /* Tinted from the surface hue rather than gray, and dark enough to read:
      5.8:1 on the field background, where the previous value managed 2.96:1. */
-  color: #5A6866;
+  color: #6B5B50;
 }
 
 .login-card .form-control:hover {
@@ -230,7 +226,8 @@
   outline: none;
   background: #FFFFFF;
   border-color: var(--color-accent-2);
-  box-shadow: 0 0 0 3px rgba(254, 151, 156, 0.38);
+  border-width: 2px;
+  box-shadow: none;
 }
 
 .login-card .form-control:focus + svg,
@@ -257,13 +254,14 @@
 
 .field-toggle:hover {
   color: var(--color-ink);
-  background: rgba(1, 50, 55, 0.06);
+  background: rgba(36, 26, 20, 0.06);
 }
 
 .field-toggle:focus-visible {
   outline: none;
   color: var(--color-ink);
-  box-shadow: 0 0 0 3px rgba(254, 151, 156, 0.38);
+  border-width: 2px;
+  box-shadow: none;
 }
 
 .field-toggle svg {
@@ -284,13 +282,13 @@
   height: 3rem;
   margin-top: 1.5rem;
   font-size: 0.9375rem;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--color-ink);
+  color: var(--color-ivory);
   background: var(--color-accent-1);
   border: 0;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 10px 20px -10px rgba(1, 50, 55, 0.4);
+  border-radius: var(--radius-pill);
+  box-shadow: none;
   cursor: pointer;
   transition: background-color 160ms ease, transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 160ms ease;
@@ -298,17 +296,16 @@
 
 .login-submit:hover {
   background: var(--color-accent-2);
-  box-shadow: 0 14px 26px -12px rgba(1, 50, 55, 0.46);
+  box-shadow: none;
 }
 
 .login-submit:active {
-  transform: translateY(1px);
-  box-shadow: 0 6px 14px -10px rgba(1, 50, 55, 0.4);
+  transform: scale(0.98);
 }
 
 .login-submit:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(1, 50, 55, 0.28), 0 10px 20px -10px rgba(1, 50, 55, 0.4);
+  box-shadow: 0 0 0 2px var(--color-accent-2);
 }
 
 .login-submit[data-busy="true"] {
@@ -323,7 +320,7 @@
   height: 0.875rem;
   margin-left: 0.5rem;
   vertical-align: -2px;
-  border: 2px solid rgba(1, 50, 55, 0.3);
+  border: 2px solid rgba(36, 26, 20, 0.3);
   border-top-color: var(--color-ink);
   border-radius: 50%;
   animation: submit-spin 700ms linear infinite;
@@ -350,7 +347,7 @@
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
   line-height: 1.45;
-  color: #8C2A1E;
+  color: #A32F22;
   background: rgba(192, 57, 43, 0.08);
   border: 1px solid rgba(192, 57, 43, 0.22);
   border-radius: var(--radius-md);
@@ -372,8 +369,8 @@
   display: block;
   margin-top: 0.375rem;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: #8C2A1E;
+  font-weight: 400;
+  color: #A32F22;
 }
 
 .field-error:empty {
@@ -400,19 +397,19 @@
   padding: 0 1rem 1.75rem;
   font-size: 0.75rem;
   /* Over the dark near ridge rather than the sky: 8.5:1 light-on-teal. */
-  color: #F7E2D6;
+  color: #FFF3DC;
 }
 
 .login-foot a {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: rgba(247, 226, 214, 0.45);
+  text-decoration-color: rgba(255, 243, 220, 0.45);
   text-underline-offset: 3px;
   transition: text-decoration-color 140ms ease;
 }
 
 .login-foot a:hover {
-  text-decoration-color: #F7E2D6;
+  text-decoration-color: #FFF3DC;
 }
 
 .login-foot-dot {

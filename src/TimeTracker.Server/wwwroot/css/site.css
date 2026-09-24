@@ -18,26 +18,60 @@ html {
    ========================================================================== */
 
 :root {
-  --color-cream: #FCE8DF;
-  --color-accent-1: #FEAE96;
-  --color-accent-2: #FE979C;
-  --color-ink: #013237;
+  /* --------------------------------------------------------------------
+     Brand. Three colours, and the contrast maths decides what each can do:
+       rust   7.71:1 with ivory text, and 7.71:1 as text on ivory
+              -> the action colour, and every dark surface
+       orange 7.8:1 with ink text, but 2.16:1 with ivory and 2.16:1 as text
+              -> only ever a filled surface carrying dark text, never text
+       ivory  the canvas everything else sits on
+     -------------------------------------------------------------------- */
+  --color-rust: #8C381F;
+  --color-orange: #FB9824;
+  --color-ivory: #FFFFF0;
 
-  --color-bg: #FDF6F2;
+  /* The single accent, in the design system's sense: one colour for actions.
+     accent-2 is the same hue pressed darker for hover and focus, not a second
+     brand colour. */
+  --color-accent-1: #8C381F;
+  --color-accent-2: #6F2B16;
+
+  /* Attention, not action: active navigation, counts, the current filter.
+     Always paired with ink. */
+  --color-highlight: #FB9824;
+
+  --color-ink: #241A14;
+  --color-bg: #FFFFF0;
   --color-surface: #FFFFFF;
-  --color-border: #EBDCD3;
+
+  /* The system's canvasParchment: the quiet fill behind chips and inactive
+     controls, and the second surface in an alternating rhythm. */
+  --color-cream: #F7F1E1;
+
+  /* Hairlines do the work shadows used to. 1.3:1 against both surfaces -
+     present when looked for, silent otherwise. */
+  --color-border: #E8E0CE;
+
   --color-text: var(--color-ink);
-  --color-text-muted: #6B7A78;
+  --color-text-muted: #6B5B50;
 
-  --color-danger: #C0392B;
-  --color-success: #1F7A5C;
+  --color-danger: #A32F22;
+  --color-success: #2F6B43;
 
+  /* Radii from the system: sm 6, md 10, lg 14, xl 20, and a pill for anything
+     that performs an action. Continuous curves where the browser offers them. */
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgba(1, 50, 55, 0.06);
-  --shadow-md: 0 2px 8px rgba(1, 50, 55, 0.08);
+  /* Kept as tokens so nothing referencing them breaks, but both resolve to
+     nothing: this system has no shadow layer. Depth comes from surface colour
+     and hairlines, and the one exception the source allows - hero imagery -
+     does not appear in an admin console. */
+  --shadow-sm: none;
+  --shadow-md: none;
 
   --sidebar-width: 240px;
 }
@@ -53,13 +87,31 @@ a {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus, .form-select:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--color-accent-2);
-  border-color: var(--color-accent-2);
+  box-shadow: none;
+  border-color: var(--color-accent-1);
+  border-width: 2px;
 }
 
 .form-check-input:checked {
   background-color: var(--color-ink);
   border-color: var(--color-ink);
+}
+
+.btn,
+.btn-sm {
+  /* Pill CTAs: the shape is what signals actionability in this system, so it is
+     applied to the base class rather than per variant. Continuous curves where
+     the browser supports them. */
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 1rem;
 }
 
 .btn-primary {
@@ -69,9 +121,9 @@ a {
   --bs-btn-hover-border-color: var(--color-accent-2);
   --bs-btn-active-bg: var(--color-accent-2);
   --bs-btn-active-border-color: var(--color-accent-2);
-  --bs-btn-color: var(--color-ink);
-  --bs-btn-hover-color: var(--color-ink);
-  --bs-btn-active-color: var(--color-ink);
+  --bs-btn-color: var(--color-ivory);
+  --bs-btn-hover-color: var(--color-ivory);
+  --bs-btn-active-color: var(--color-ivory);
   font-weight: 600;
 }
 
@@ -84,7 +136,7 @@ a {
 .card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .card-header {
@@ -127,7 +179,7 @@ a {
   width: var(--sidebar-width);
   flex: 0 0 var(--sidebar-width);
   background: var(--color-ink);
-  color: #DCEEEC;
+  color: #FFF6EC;
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -165,7 +217,7 @@ a {
 
 .sidebar-brand-tag {
   font-size: 0.7rem;
-  color: #9FC2BE;
+  color: #DCC0AC;
 }
 
 .sidebar-nav {
@@ -178,10 +230,10 @@ a {
   display: block;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
-  color: #C9E2DF;
+  color: #F3DFCE;
   text-decoration: none;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 400;
   margin-bottom: 0.15rem;
 }
 
@@ -191,16 +243,18 @@ a {
 }
 
 .sidebar-nav-link.active {
-  background: var(--color-accent-1);
+  /* The highlight rather than the accent: this marks where you are, it does not
+     perform an action. Ink on orange is 7.8:1; ink on rust would be 2.16:1. */
+  background: var(--color-highlight);
   color: var(--color-ink);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .sidebar-footer {
   padding: 0.9rem 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.8rem;
-  color: #9FC2BE;
+  color: #DCC0AC;
 }
 
 .status-dot {
@@ -208,14 +262,14 @@ a {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4CD9A8;
+  background: #7FD6A0;
   margin-right: 0.35rem;
 }
 
 .sidebar-version {
   margin-top: 0.2rem;
   font-size: 0.72rem;
-  color: #6E938F;
+  color: #C9A791;
 }
 
 .app-main {
@@ -274,7 +328,7 @@ a {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--color-accent-2);
+  background: var(--color-cream);
   color: var(--color-ink);
   display: flex;
   align-items: center;
@@ -430,13 +484,13 @@ a {
 :root {
   /* Time states. Active carries the brand ink; idle the warm accent, because idle is the one
      worth an admin's attention; locked and asleep recede, being expected parts of a day. */
-  --time-active: #13615B;
-  --time-idle: #F08F72;
-  --time-locked: #8AA6A3;
-  --time-asleep: #D8CCC4;
+  --time-active: #2F6B43;
+  --time-idle: #D07C3A;
+  --time-locked: #7E6E5F;
+  --time-asleep: #E0D3BC;
 
   --tone-good: var(--color-success);
-  --tone-bad: #B03A2E;
+  --tone-bad: #8F2A1E;
 }
 
 .num {
@@ -454,7 +508,7 @@ a {
 
 .dash-section-title {
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 600;
   margin: 0;
   color: var(--color-ink);
 }
@@ -567,13 +621,13 @@ a {
 .dash-stats dd {
   margin: 0;
   font-size: 1.15rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--color-ink);
 }
 
 .dash-stats-of {
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--color-text-muted);
 }
 
@@ -597,7 +651,7 @@ a {
 .dash-seg-idle { background: var(--time-idle); }
 .dash-seg-locked { background: var(--time-locked); }
 .dash-seg-asleep {
-  background: repeating-linear-gradient(135deg, var(--time-asleep) 0 4px, #E9E0DA 4px 8px);
+  background: repeating-linear-gradient(135deg, var(--time-asleep) 0 4px, #EFE6D6 4px 8px);
 }
 
 .dash-legend {
@@ -689,7 +743,7 @@ a {
 }
 
 .dash-state.is-reporting { color: var(--color-success); }
-.dash-state.is-late { color: #9A5A1E; }
+.dash-state.is-late { color: #8A5316; }
 .dash-state.is-silent { color: var(--tone-bad); }
 
 .dash-disabled {
@@ -737,7 +791,7 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .dash-ranked-value {
@@ -791,7 +845,7 @@ a {
 
 .dash-apple-header .page-heading {
   font-size: clamp(2rem, 3.4vw, 2.8rem);
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: -0.045em;
   line-height: 1;
 }
@@ -806,11 +860,11 @@ a {
   position: sticky;
   top: 0.75rem;
   z-index: 10;
-  border-color: rgba(255, 255, 255, 0.64);
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 12px 30px rgba(1, 50, 55, 0.08), 0 1px 1px rgba(1, 50, 55, 0.05);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  /* Was glass over a drop shadow. Depth here is a surface step plus a hairline:
+     the sticky bar stays readable while scrolling without floating above the page. */
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: none;
 }
 
 .dash-apple-filters .form-select,
@@ -819,7 +873,7 @@ a {
   border-color: transparent;
   background-color: rgba(253, 246, 242, 0.76);
   border-radius: 0.55rem;
-  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(36, 26, 20, 0.06);
 }
 
 .dash-apple-filters .form-select:hover,
@@ -829,25 +883,25 @@ a {
 
 .dash-apple-surface {
   overflow: hidden;
-  border-color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 18px 44px rgba(1, 50, 55, 0.07), 0 2px 4px rgba(1, 50, 55, 0.03);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: none;
 }
 
 .dash-apple-surface .card-header {
   background: rgba(255, 255, 255, 0.42);
-  border-bottom-color: rgba(1, 50, 55, 0.07);
+  border-bottom-color: rgba(36, 26, 20, 0.07);
 }
 
 .dash-time.dash-apple-surface {
   background:
-    radial-gradient(circle at 91% -10%, rgba(254, 174, 150, 0.34), transparent 30rem),
+    radial-gradient(circle at 91% -10%, rgba(251, 152, 36, 0.34), transparent 30rem),
     rgba(255, 255, 255, 0.88);
 }
 
 .dash-section-title {
   font-size: 1.05rem;
-  font-weight: 680;
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
 
@@ -855,7 +909,7 @@ a {
   gap: 0;
   border-radius: 0.85rem;
   background: rgba(255, 255, 255, 0.56);
-  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(36, 26, 20, 0.06);
   overflow: hidden;
 }
 
@@ -864,7 +918,7 @@ a {
 }
 
 .dash-stats > div + div {
-  border-left: 1px solid rgba(1, 50, 55, 0.08);
+  border-left: 1px solid rgba(36, 26, 20, 0.08);
 }
 
 .dash-stats dd {
@@ -876,8 +930,8 @@ a {
   padding: 2px;
   gap: 3px;
   border-radius: 999px;
-  background: rgba(1, 50, 55, 0.08);
-  box-shadow: inset 0 1px 2px rgba(1, 50, 55, 0.08);
+  background: var(--color-cream);
+  box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 .dash-seg {
@@ -894,7 +948,7 @@ a {
   padding: 0.85rem;
   border-radius: 0.85rem;
   background: rgba(253, 246, 242, 0.68);
-  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(36, 26, 20, 0.045);
 }
 
 .dash-legend-value {
@@ -910,7 +964,6 @@ a {
 }
 
 .dash-range.is-active {
-  box-shadow: 0 1px 3px rgba(1, 50, 55, 0.12), inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .dash-agents tbody tr,
@@ -1037,7 +1090,7 @@ a {
 
 .act-untracked,
 .act-track {
-  background: repeating-linear-gradient(135deg, var(--color-bg) 0 5px, #E4D3C9 5px 6px);
+  background: repeating-linear-gradient(135deg, var(--color-bg) 0 5px, #EDE4D2 5px 6px);
 }
 
 .act-untracked {
@@ -1102,7 +1155,7 @@ a {
 
 .act-block:hover {
   filter: brightness(1.12);
-  box-shadow: inset 0 0 0 1px rgba(1, 50, 55, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(36, 26, 20, 0.35);
 }
 
 .act-future {
@@ -1122,7 +1175,7 @@ a {
 
 .act-subtitle {
   font-size: 0.85rem;
-  font-weight: 650;
+  font-weight: 600;
   margin: 0 0 0.1rem;
   color: var(--color-ink);
 }
@@ -1873,7 +1926,7 @@ a {
 
 .set-list dt {
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--color-text-muted);
 }
 
@@ -1985,7 +2038,7 @@ a {
   padding: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 18px 40px -22px rgba(1, 50, 55, 0.45), var(--shadow-md);
+  box-shadow: none;
 }
 
 .notif-head {
@@ -1999,7 +2052,7 @@ a {
 
 .notif-title {
   font-size: 0.85rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2072,7 +2125,7 @@ a {
 
 .notif-item-title {
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2122,7 +2175,7 @@ a {
 }
 
 .log-level.is-error { color: var(--tone-bad); }
-.log-level.is-warning { color: #9A5A1E; }
+.log-level.is-warning { color: #8A5316; }
 .log-level.is-info { color: var(--color-text-muted); }
 
 .log-message {
