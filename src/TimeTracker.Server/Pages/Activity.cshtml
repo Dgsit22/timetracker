@@ -39,6 +39,21 @@
     // FormatDuration floors to whole minutes, which renders real-but-short time as "0m".
     string Dur(double seconds) => seconds is > 0 and < 60 ? "<1m" : ActivityAggregation.FormatDuration(seconds);
 
+    // The shifts this workplace actually runs. The night shift ends before it starts, which the
+    // window builder reads as crossing midnight - so 18:30-03:30 covers one continuous night
+    // rather than an empty selection. Times are in whichever zone the header is showing.
+    var shifts = new[]
+    {
+        (Label: "9 - 6", Name: "Morning", From: "09:00", To: "18:00"),
+        (Label: "10 - 7", Name: "Morning", From: "10:00", To: "19:00"),
+        (Label: "11 - 9", Name: "Mid", From: "11:00", To: "21:00"),
+        (Label: "12 - 9", Name: "Mid", From: "12:00", To: "21:00"),
+        (Label: "6:30 - 3:30", Name: "Night", From: "18:30", To: "03:30"),
+    };
+
+    var currentFrom = Model.TimeFrom?.ToString("HH:mm");
+    var currentTo = Model.TimeTo?.ToString("HH:mm");
+
     var states = new[]
     {
         (Key: "active", Label: "Active"),
@@ -132,13 +147,21 @@
                 <button type="button" class="dash-range@(activeRange == days ? " is-active" : "")" aria-pressed="@(activeRange == days ? "true" : "false")" onclick="setDateRange(@days)">@label</button>
             }
         </div>
-        <div class="dash-ranges" role="group" aria-label="Quick time window">
+        <div class="dash-ranges act-shifts" role="group" aria-label="Shift">
+            <span class="act-shifts-label" aria-hidden="true">Shift</span>
             <button type="button" class="dash-range@(Model.ActiveWindows is not null ? "" : " is-active")"
                     aria-pressed="@(Model.ActiveWindows is null ? "true" : "false")"
                     onclick="setTimeWindow('', '')">All day</button>
-            <button type="button" class="dash-range@(Model.TimeFrom?.ToString("HH:mm") == "09:00" && Model.TimeTo?.ToString("HH:mm") == "18:00" ? " is-active" : "")"
-                    aria-pressed="@(Model.TimeFrom?.ToString("HH:mm") == "09:00" && Model.TimeTo?.ToString("HH:mm") == "18:00" ? "true" : "false")"
-                    onclick="setTimeWindow('09:00', '18:00')">9 - 6</button>
+            @foreach (var shift in shifts)
+            {
+                var isActive = currentFrom == shift.From && currentTo == shift.To;
+                <button type="button" class="dash-range@(isActive ? " is-active" : "")"
+                        aria-pressed="@(isActive ? "true" : "false")"
+                        title="@shift.Name shift, @shift.Label@(string.CompareOrdinal(shift.To, shift.From) <= 0 ? " the next morning" : "")"
+                        onclick="setTimeWindow('@shift.From', '@shift.To')">
+                    <span class="act-shift-name">@shift.Name</span>@shift.Label
+                </button>
+            }
         </div>
     </div>
     <fieldset class="act-types">

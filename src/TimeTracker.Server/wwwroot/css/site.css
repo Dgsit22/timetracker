@@ -2224,3 +2224,31 @@ a {
   font-weight: 600;
   color: var(--color-ink);
 }
+
+/* --- Shift presets -------------------------------------------------------- */
+
+.act-shifts {
+  flex-wrap: wrap;
+}
+
+.act-shifts-label {
+  align-self: center;
+  margin-right: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Two shifts share a name and two share a span, so each chip carries both -
+   the name in a lighter weight, the hours as the thing being chosen. */
+.act-shift-name {
+  margin-right: 0.3rem;
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+.dash-range.is-active .act-shift-name {
+  opacity: 0.85;
+}
