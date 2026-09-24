@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using TimeTracker.Agent.Diagnostics;
 
@@ -59,6 +61,7 @@ public partial class SettingsWindow : Window
         }
 
         HeartbeatText.Text = status.LastSyncUtc is { } last ? Ago(last) : "no successful sync yet";
+        LastCheckedText.Text = status.WrittenAtUtc.ToLocalTime().ToString("d MMM yyyy, hh:mm tt");
         QueuedText.Text = status.QueuedEvents == 0 ? "none" : status.QueuedEvents.ToString("N0");
 
         if (status.LastErrorMessage is { Length: > 0 } error)
@@ -216,6 +219,50 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private const int DwmwaSystemBackdropType = 38;
+    private const int DwmwaWindowCornerPreference = 33;
+    private const int BackdropAcrylic = 3;   // DWMSBT_TRANSIENTWINDOW
+    private const int CornerRound = 2;       // DWMWCP_ROUND
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    /// <summary>
+    /// Asks the compositor for a real acrylic backdrop rather than faking one.
+    ///
+    /// A blur drawn inside the window can only blur the window's own content; what makes glass
+    /// read as glass is sampling what is *behind* it, which only the desktop compositor can do.
+    /// So this hands the job to DWM and clears WPF's own background so the backdrop shows
+    /// through - the two have to happen together, or the window paints over the effect it just
+    /// asked for.
+    ///
+    /// Older Windows returns a failure code and nothing changes: the window keeps the opaque
+    /// ivory canvas it is built with, which is why that background is only cleared once the
+    /// call has actually succeeded.
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var backdrop = BackdropAcrylic;
+
+        if (DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref backdrop, sizeof(int)) != 0)
+        {
+            return;
+        }
+
+        var corners = CornerRound;
+        DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref corners, sizeof(int));
+
+        if (HwndSource.FromHwnd(hwnd) is { } source)
+        {
+            source.CompositionTarget.BackgroundColor = System.Windows.Media.Colors.Transparent;
+        }
+
+        Background = System.Windows.Media.Brushes.Transparent;
+    }
+
     private string ApiKeyValue => ShowKeyCheckBox.IsChecked == true ? ApiKeyTextBox.Text : ApiKeyPasswordBox.Password;
 
     private void OnShowKeyChanged(object sender, RoutedEventArgs e)
@@ -242,6 +289,7 @@ public partial class SettingsWindow : Window
             // Shows its own result MessageBox (same as the tray menu's "Test Connection") -
             // nothing further to do with the result here.
             await ConnectionTest.RunAsync(ServerUrlBox.Text.Trim(), ApiKeyValue.Trim());
+            LastCheckedText.Text = DateTimeOffset.Now.ToString("d MMM yyyy, hh:mm tt");
         }
         finally
         {
@@ -372,7 +420,7 @@ public partial class SettingsWindow : Window
         ConnStatusTitle.Foreground = new SolidColorBrush(isError
             ? System.Windows.Media.Color.FromRgb(0xA3, 0x2F, 0x22)
             : System.Windows.Media.Color.FromRgb(0x8C, 0x38, 0x1F));
-        ConnStatusDot.Fill = new SolidColorBrush(isError
+        ConnStatusDot.Background = new SolidColorBrush(isError
             ? System.Windows.Media.Color.FromRgb(0xA3, 0x2F, 0x22)
             : System.Windows.Media.Color.FromRgb(0xFB, 0x98, 0x24));
     }
