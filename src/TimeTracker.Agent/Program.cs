@@ -107,7 +107,11 @@ builder.Services.AddHttpClient("TimeTrackerServer", (sp, client) =>
 
 // Singleton: the tray reads the current state from the same instance the background services
 // report faults into.
-builder.Services.AddSingleton<AgentHealth>();
+builder.Services.AddSingleton(sp => new AgentHealth(
+    sp.GetRequiredService<IEventStore>(),
+    sp.GetRequiredService<ILogger<AgentHealth>>(),
+    statusFilePath: AgentStatusFile.PathFor(
+        sp.GetRequiredService<IOptions<AgentOptions>>().Value.DataDirectory)));
 
 builder.Services.AddHostedService<ActivityTracker>();
 builder.Services.AddHostedService<IdleTracker>();

@@ -2,74 +2,122 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TimeTracker Agent - Settings"
-        Width="500" SizeToContent="Height"
-        ResizeMode="NoResize"
+        Width="940" Height="770" MinWidth="820" MinHeight="600"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        Background="#FDF6F2"
-        FontFamily="Segoe UI">
+        Background="#FFFFF0"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal">
 
     <!--
-      Colors lifted straight from the Server's design tokens (src/TimeTracker.Server/wwwroot/css/site.css
-      :root block) so this window reads as the same product as the web Dashboard, not a bolted-on
-      afterthought. Kept as literal hex here rather than any shared source, since a WPF app and a
-      Razor site have no realistic way to share a token file - if the palette changes there, it needs
-      a matching edit here too.
+      Three colours, and the contrast maths decides what each one may do:
+        rust   #8C381F  7.71:1 on ivory - text, headings, icons, primary fill
+        orange #FB9824  a filled surface only; ivory text on it is 2.16:1
+        ivory  #FFFFF0  the canvas
+
+      One deviation from the brief, and it is deliberate: rust on orange measures
+      3.56:1, which passes for large text and UI shapes but not for a 14px button
+      label. Where text sits on orange it uses OnAccentBrush - the same hue pressed
+      darker to 4.73:1 - so the look is what was asked for and the contrast rule the
+      same brief sets is still met.
+
+      Palette matches the Server console (site.css :root), so the two read as one
+      product. There is no realistic way for a WPF app and a Razor site to share a
+      token file, so a change there needs a matching edit here.
     -->
     <Window.Resources>
-        <SolidColorBrush x:Key="BgBrush" Color="#FDF6F2" />
+        <SolidColorBrush x:Key="CanvasBrush" Color="#FFFFF0" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="BorderBrush2" Color="#EBDCD3" />
-        <SolidColorBrush x:Key="InkBrush" Color="#013237" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#6B7A78" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#FEAE96" />
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#FE979C" />
-        <SolidColorBrush x:Key="DangerBrush" Color="#C0392B" />
-        <SolidColorBrush x:Key="SuccessBrush" Color="#1F7A5C" />
-        <SolidColorBrush x:Key="HeaderBrush" Color="#FFF3EE" />
+        <SolidColorBrush x:Key="HairlineBrush" Color="#E7DCCF" />
+        <SolidColorBrush x:Key="RustBrush" Color="#8C381F" />
+        <SolidColorBrush x:Key="RustHoverBrush" Color="#732D18" />
+        <SolidColorBrush x:Key="OnAccentBrush" Color="#6F2B16" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FB9824" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#F08C14" />
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#FFF0D8" />
+        <SolidColorBrush x:Key="StatusSurfaceBrush" Color="#FFF7E8" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#6B5145" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#A32F22" />
 
-        <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,4" />
+        <!-- Type scale from the brief. -->
+        <Style x:Key="PageTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="30" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
         </Style>
 
-        <Style x:Key="Eyebrow" TargetType="TextBlock">
+        <Style x:Key="PageSubtitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+        </Style>
+
+        <Style x:Key="CardDescription" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="MetricLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+
+        <Style x:Key="MetricValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
 
         <!--
-          Full ControlTemplates, not just Setters: the stock .NET 8 Fluent theme's built-in
-          TextBox/PasswordBox templates hard-code their own focus-state border color (Windows'
-          system blue) via internal VisualStateManager states, which a Style-level BorderBrush
-          Setter/Trigger can't reach or override - confirmed by actually rendering this window
-          and screenshotting it, where the API-key field showed blue instead of the intended
-          accent-2 coral. Owning the template outright is the only way to get the Dashboard's
-          .form-control:focus treatment (accent-2 border) instead of the OS default.
+          Full ControlTemplates rather than Setters: the stock .NET 8 Fluent theme hard-codes its
+          own focus-state border colour, which would override anything set here and put Windows'
+          system accent - usually blue - into a window that is meant to have none.
         -->
-        <Style x:Key="FieldBox" TargetType="Control">
-            <Setter Property="Padding" Value="8,7" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="FontSize" Value="13" />
-        </Style>
-
-        <Style TargetType="TextBox" BasedOn="{StaticResource FieldBox}">
+        <Style x:Key="FieldBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource RustBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Padding" Value="12,0,12,0" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        <Border x:Name="Bd" Background="{StaticResource CanvasBrush}"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1" CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#D9C6B4" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RustBrush}" />
                                 <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -77,17 +125,28 @@
             </Setter>
         </Style>
 
-        <Style TargetType="PasswordBox" BasedOn="{StaticResource FieldBox}">
+        <Style x:Key="FieldPasswordBox" TargetType="PasswordBox">
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource RustBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Padding" Value="12,0,12,0" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="PasswordBox">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        <Border x:Name="Bd" Background="{StaticResource CanvasBrush}"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1" CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#D9C6B4" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RustBrush}" />
                                 <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -96,19 +155,49 @@
             </Setter>
         </Style>
 
-        <!-- Matches the Dashboard's .btn-primary: accent-1 fill, ink text, accent-2 on hover. -->
+        <!-- Primary: rust fill, ivory label at 7.71:1. -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource CanvasBrush}" />
+            <Setter Property="FontSize" Value="14.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="16,8" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Padding" Value="20,0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="Bd" Background="{StaticResource RustBrush}" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource RustHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.86" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource OnAccentBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Accent: orange fill, deepened rust label at 4.73:1. -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{StaticResource AccentBrush}" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -116,11 +205,14 @@
                                 <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.82" />
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.86" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource OnAccentBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BorderBrush2}" />
-                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -128,26 +220,28 @@
             </Setter>
         </Style>
 
-        <!-- Matches .btn-outline-danger's shape/weight but in ink, for a secondary action. -->
-        <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="16,7" />
-            <Setter Property="Cursor" Value="Hand" />
+        <Style x:Key="OutlineButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{StaticResource InkBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="8"
+                                BorderBrush="{StaticResource RustBrush}" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.86" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -155,85 +249,441 @@
             </Setter>
         </Style>
 
-        <Style x:Key="LinkButton" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
+        <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RustBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Small square button for the show/copy affordances beside the key field. -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{StaticResource CanvasBrush}" CornerRadius="8"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RustBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sidebar navigation. RadioButtons so exactly one is current, with arrow-key movement
+             and screen-reader semantics coming for free. -->
+        <Style x:Key="NavItem" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="14.5" />
+            <Setter Property="Foreground" Value="{StaticResource RustBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Padding="12,10">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RustBrush}" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CardBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <Style x:Key="CardIconTile" TargetType="Border">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,0,14,0" />
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
     </Window.Resources>
 
-    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="#FFFDFB" BorderThickness="1" CornerRadius="18" Margin="22">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.12" Color="#013237" />
-        </Border.Effect>
-        <Grid>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="248" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================ Sidebar ============================ -->
+        <Border Grid.Column="0" Background="{StaticResource CanvasBrush}"
+                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,1,0">
+            <StackPanel Margin="20,24,20,20">
+                <Border Width="52" Height="52" CornerRadius="12" Background="{StaticResource RustBrush}"
+                        HorizontalAlignment="Left">
+                    <!-- The product's own clock mark, same as the console favicon. -->
+                    <Canvas Width="26" Height="26">
+                        <Ellipse Width="22" Height="22" Canvas.Left="2" Canvas.Top="2"
+                                 Stroke="#FFFFF0" StrokeThickness="2" />
+                        <Line X1="13" Y1="13" X2="13" Y2="7" Stroke="#FFFFF0" StrokeThickness="2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        <Line X1="13" Y1="13" X2="17.5" Y2="15.5" Stroke="#FB9824" StrokeThickness="2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    </Canvas>
+                </Border>
+
+                <TextBlock Text="TIMETRACKER AGENT" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource MutedBrush}" Margin="0,18,0,0" />
+                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold"
+                           Foreground="{StaticResource RustBrush}" Margin="0,2,0,22" />
+
+                <RadioButton x:Name="NavConnection" Style="{StaticResource NavItem}" GroupName="Nav"
+                             IsChecked="True" Checked="OnNavChanged" Content="Connection" />
+                <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" GroupName="Nav"
+                             Checked="OnNavChanged" Content="General" />
+                <RadioButton x:Name="NavAbout" Style="{StaticResource NavItem}" GroupName="Nav"
+                             Checked="OnNavChanged" Content="About" />
+            </StackPanel>
+        </Border>
+
+        <!-- ============================ Content ============================ -->
+        <Grid Grid.Column="1" Background="{StaticResource CanvasBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Border Background="{StaticResource HeaderBrush}" CornerRadius="18,18,0,0" Padding="28,24,28,22">
+            <StackPanel Grid.Row="0" Margin="32,22,32,14">
+                <TextBlock x:Name="SectionTitle" Text="Connection settings" Style="{StaticResource PageTitle}" />
+                <TextBlock x:Name="SectionSubtitle" Style="{StaticResource PageSubtitle}"
+                           Text="Keep this device securely connected to your TimeTracker workspace." />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="32,0,32,8">
+
+                <!-- ====================== Connection ====================== -->
                 <StackPanel>
-                    <TextBlock Text="TIMETRACKER AGENT" Style="{StaticResource Eyebrow}" />
-                    <TextBlock Text="Connection settings" FontSize="24" FontWeight="SemiBold"
-                               Foreground="{StaticResource InkBrush}" Margin="0,7,0,0" />
-                    <TextBlock Text="Keep this device securely connected to your TimeTracker workspace."
-                               FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" />
+                    <StackPanel x:Name="ConnectionPanel">
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource CardIconTile}">
+                                        <Canvas Width="22" Height="22">
+                                            <Rectangle Canvas.Left="3" Canvas.Top="3" Width="16" Height="5.5" RadiusX="1.5" RadiusY="1.5"
+                                                       Stroke="#8C381F" StrokeThickness="1.6" />
+                                            <Rectangle Canvas.Left="3" Canvas.Top="13.5" Width="16" Height="5.5" RadiusX="1.5" RadiusY="1.5"
+                                                       Stroke="#8C381F" StrokeThickness="1.6" />
+                                            <Ellipse Canvas.Left="5.6" Canvas.Top="5" Width="2.2" Height="2.2" Fill="#8C381F" />
+                                            <Ellipse Canvas.Left="5.6" Canvas.Top="15.5" Width="2.2" Height="2.2" Fill="#8C381F" />
+                                        </Canvas>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Server connection" Style="{StaticResource CardTitle}" />
+                                        <TextBlock Style="{StaticResource CardDescription}"
+                                                   Text="Enter the server address and the key supplied by your administrator." />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <TextBlock Text="Server URL" Style="{StaticResource FieldLabel}" Margin="0,18,0,6" />
+                                <TextBox x:Name="ServerUrlBox" Style="{StaticResource FieldBox}" />
+
+                                <TextBlock Text="Agent API key" Style="{StaticResource FieldLabel}" Margin="0,16,0,6" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Grid.Column="0">
+                                        <PasswordBox x:Name="ApiKeyPasswordBox" Style="{StaticResource FieldPasswordBox}" />
+                                        <TextBox x:Name="ApiKeyTextBox" Style="{StaticResource FieldBox}" Visibility="Collapsed" />
+                                    </Grid>
+                                    <Button Grid.Column="1" x:Name="ShowKeyButton" Style="{StaticResource IconButton}"
+                                            Margin="8,0,0,0" Click="OnToggleKeyVisibility"
+                                            ToolTip="Show or hide the key"
+                                            AutomationProperties.Name="Show or hide the API key">
+                                        <Canvas Width="20" Height="20">
+                                            <Path Stroke="#8C381F" StrokeThickness="1.6" StrokeStartLineCap="Round"
+                                                  Data="M2,10 C4,6 7,4.5 10,4.5 C13,4.5 16,6 18,10 C16,14 13,15.5 10,15.5 C7,15.5 4,14 2,10 Z" />
+                                            <Ellipse Canvas.Left="7.5" Canvas.Top="7.5" Width="5" Height="5"
+                                                     Stroke="#8C381F" StrokeThickness="1.6" />
+                                        </Canvas>
+                                    </Button>
+                                    <Button Grid.Column="2" x:Name="CopyKeyButton" Style="{StaticResource IconButton}"
+                                            Margin="8,0,0,0" Click="OnCopyKey"
+                                            ToolTip="Copy the key to the clipboard"
+                                            AutomationProperties.Name="Copy the API key">
+                                        <Canvas Width="20" Height="20">
+                                            <Rectangle Canvas.Left="6.5" Canvas.Top="6.5" Width="10" Height="11" RadiusX="2" RadiusY="2"
+                                                       Stroke="#8C381F" StrokeThickness="1.6" />
+                                            <Path Stroke="#8C381F" StrokeThickness="1.6" StrokeStartLineCap="Round"
+                                                  Data="M4,13.5 L4,4 C4,3 4.8,2.5 5.5,2.5 L13,2.5" />
+                                        </Canvas>
+                                    </Button>
+                                </Grid>
+
+                                <CheckBox x:Name="ShowKeyCheckBox" Content="Show API key" Margin="0,12,0,0"
+                                          Checked="OnShowKeyChanged" Unchecked="OnShowKeyChanged" />
+
+                                <!-- Connection status. Rust on a warm surface: no green, no blue. -->
+                                <Border x:Name="ConnStatusPanel" Background="{StaticResource StatusSurfaceBrush}"
+                                        BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1"
+                                        CornerRadius="10" Padding="16,13" Margin="0,16,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <Ellipse x:Name="ConnStatusDot" Width="12" Height="12" Fill="{StaticResource AccentBrush}"
+                                                     VerticalAlignment="Top" Margin="0,4,12,0" />
+                                            <StackPanel>
+                                                <TextBlock x:Name="ConnStatusTitle" Text="Connection not tested yet"
+                                                           FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource RustBrush}" />
+                                                <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0"
+                                                           Text="Use Test Connection to check the address and key against the server." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="TestAgainButton" Style="{StaticResource OutlineButton}"
+                                                Content="Test Again" Height="36" Padding="16,0" FontSize="13.5"
+                                                VerticalAlignment="Center" Click="OnTestConnection" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ====================== Agent status ====================== -->
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <Border Style="{StaticResource CardIconTile}">
+                                            <Canvas Width="22" Height="22">
+                                                <Rectangle Canvas.Left="2.5" Canvas.Top="4" Width="17" Height="11.5" RadiusX="2" RadiusY="2"
+                                                           Stroke="#8C381F" StrokeThickness="1.6" />
+                                                <Line X1="8" Y1="18.5" X2="14" Y2="18.5" Stroke="#8C381F" StrokeThickness="1.6"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                            </Canvas>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Agent status" Style="{StaticResource CardTitle}" />
+                                            <TextBlock Style="{StaticResource CardDescription}"
+                                                       Text="Current status and information about the agent on this machine." />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border x:Name="RunningBadge" Grid.Column="1" Background="{StaticResource AccentBrush}"
+                                            CornerRadius="16" Padding="14,6" Height="32" VerticalAlignment="Top">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="9" Height="9" Fill="{StaticResource OnAccentBrush}"
+                                                     VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock x:Name="RunningBadgeText" Text="Checking" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource OnAccentBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <Border Background="{StaticResource CanvasBrush}" BorderBrush="{StaticResource HairlineBrush}"
+                                        BorderThickness="1" CornerRadius="10" Padding="18,14" Margin="0,18,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Version" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock x:Name="VersionText" Style="{StaticResource MetricValue}" Text="-" />
+                                        </StackPanel>
+                                        <Rectangle Grid.Column="1" Width="1" Fill="{StaticResource HairlineBrush}" Margin="16,2" />
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Last sync" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock x:Name="HeartbeatText" Style="{StaticResource MetricValue}" Text="-" />
+                                        </StackPanel>
+                                        <Rectangle Grid.Column="3" Width="1" Fill="{StaticResource HairlineBrush}" Margin="16,2" />
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Queued events" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock x:Name="QueuedText" Style="{StaticResource MetricValue}" Text="-" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Restart notice: orange-tinted surface, rust text. No blue. -->
+                                <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="10"
+                                        Padding="16,13" Margin="0,14,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="20" Height="20" CornerRadius="10" Background="{StaticResource AccentBrush}"
+                                                VerticalAlignment="Top" Margin="0,1,12,0">
+                                            <TextBlock Text="i" FontWeight="Bold" FontSize="12.5"
+                                                       Foreground="{StaticResource OnAccentBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock FontSize="13" TextWrapping="Wrap" MaxWidth="560"
+                                                   Foreground="{StaticResource RustBrush}"
+                                                   Text="Changes apply after the Agent restarts. Restart now, or let the background watchdog apply them within a few minutes." />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ====================== General ====================== -->
+                    <StackPanel x:Name="GeneralPanel" Visibility="Collapsed">
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <TextBlock Text="Local configuration" Style="{StaticResource CardTitle}" />
+                                <TextBlock Style="{StaticResource CardDescription}"
+                                           Text="How this Agent is set up on this machine. Capture rules - which event types are recorded - are set per device in the server console, not here." />
+
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Data folder" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DataDirText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Sync interval" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SyncIntervalText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Screenshot interval" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="ScreenshotIntervalText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Idle after" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="IdleThresholdText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Device ID" Style="{StaticResource MetricLabel}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="DeviceIdText" Style="{StaticResource MetricValue}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ====================== About ====================== -->
+                    <StackPanel x:Name="AboutPanel" Visibility="Collapsed">
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <TextBlock Text="TimeTracker Agent" Style="{StaticResource CardTitle}" />
+                                <TextBlock Style="{StaticResource CardDescription}"
+                                           Text="Records application use, idle time, locks and screenshots on this machine, and sends them to your TimeTracker server." />
+
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Version" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AboutVersionText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Installed at" Style="{StaticResource MetricLabel}" Margin="0,0,0,10" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InstallPathText" Style="{StaticResource MetricValue}" Margin="0,0,0,10" />
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Event log source" Style="{StaticResource MetricLabel}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="EventSourceText" Style="{StaticResource MetricValue}" />
+                                </Grid>
+
+                                <Border Background="{StaticResource StatusSurfaceBrush}" BorderBrush="{StaticResource HairlineBrush}"
+                                        BorderThickness="1" CornerRadius="10" Padding="16,13" Margin="0,18,0,0">
+                                    <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                                               Text="This machine is monitored for workplace reporting. What is recorded is controlled by your administrator in the server console, per device." />
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============================ Footer ============================ -->
+            <Border Grid.Row="2" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0"
+                    Background="{StaticResource CanvasBrush}" Padding="32,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Content="Cancel" Style="{StaticResource GhostButton}" Click="OnCancel" />
+
+                    <!-- Wraps rather than overflowing when the window is narrowed. -->
+                    <WrapPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="TestButton" Content="Test Connection" Style="{StaticResource OutlineButton}"
+                                Margin="8,4,0,0" Click="OnTestConnection" />
+                        <Button Content="Save Changes" Style="{StaticResource AccentButton}"
+                                Margin="8,4,0,0" Click="OnSave" />
+                        <Button Content="Save &amp; Restart Now" Style="{StaticResource PrimaryButton}"
+                                Margin="8,4,0,0" Click="OnSaveAndRestart" />
+                    </WrapPanel>
+                </Grid>
             </Border>
-
-        <StackPanel Grid.Row="1" Margin="28,24,28,22">
-
-            <TextBlock Text="Server connection" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-            <TextBlock Text="Enter the server address and the key supplied by your administrator."
-                       FontSize="12.5" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,18" TextWrapping="Wrap" />
-
-            <TextBlock Text="Server URL" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="ServerUrlBox" Margin="0,0,0,14" />
-
-            <TextBlock Text="Agent API key" Style="{StaticResource FieldLabel}" />
-            <Grid Margin="0,0,0,4">
-                <PasswordBox x:Name="ApiKeyPasswordBox" />
-                <TextBox x:Name="ApiKeyTextBox" Visibility="Collapsed" />
-            </Grid>
-            <CheckBox x:Name="ShowKeyCheckBox" Content="Show API key" Foreground="{StaticResource MutedBrush}"
-                      FontSize="12" Margin="0,7,0,4" Checked="OnShowKeyChanged" Unchecked="OnShowKeyChanged" />
-
-            <TextBlock x:Name="StatusText" Margin="0,14,0,0" FontSize="12.5" TextWrapping="Wrap" Visibility="Collapsed" />
-
-            <Border Background="#FDF6F2" CornerRadius="8" Padding="11,9" Margin="0,18,0,0">
-                <TextBlock Text="Changes apply after the Agent restarts. Restart now, or let the background watchdog apply them within a few minutes."
-                           FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
-            </Border>
-
-            <Grid Margin="0,18,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Button Grid.Column="0" Content="Cancel" Style="{StaticResource LinkButton}"
-                        HorizontalAlignment="Left" Click="OnCancel" />
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="TestButton" Content="Test Connection" Style="{StaticResource SecondaryButton}"
-                            Margin="0,0,8,0" Click="OnTestConnection" />
-                    <Button x:Name="SaveButton" Content="Save" Style="{StaticResource PrimaryButton}"
-                            Margin="0,0,8,0" Click="OnSave" />
-                    <Button x:Name="SaveAndRestartButton" Content="Save &amp; Restart Now" Style="{StaticResource PrimaryButton}"
-                            Click="OnSaveAndRestart" />
-                </StackPanel>
-            </Grid>
-        </StackPanel>
         </Grid>
-    </Border>
+    </Grid>
 </Window>

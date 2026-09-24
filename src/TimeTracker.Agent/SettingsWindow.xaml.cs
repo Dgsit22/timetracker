@@ -1,7 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
+using TimeTracker.Agent.Diagnostics;
 
 namespace TimeTracker.Agent;
 
@@ -22,6 +25,195 @@ public partial class SettingsWindow : Window
         ServerUrlBox.Text = serverUrl;
         ApiKeyPasswordBox.Password = apiKey;
         ApiKeyTextBox.Text = apiKey;
+
+        LoadAgentStatus();
+        LoadLocalConfiguration();
+    }
+
+    /// <summary>
+    /// Fills the status card from what can actually be known here. This window runs in two
+    /// hosts - inside the tray process, and as its own process from the Start Menu - so nothing
+    /// may be read out of the running Agent's memory. Everything shown comes from the status
+    /// file the Agent writes, the single-instance mutex, and this assembly.
+    /// </summary>
+    private void LoadAgentStatus()
+    {
+        VersionText.Text = AgentVersion();
+        AboutVersionText.Text = AgentVersion();
+        InstallPathText.Text = AppContext.BaseDirectory;
+        EventSourceText.Text = InstallTimeConfig.EventSourceName;
+
+        var running = IsAgentRunning();
+        RunningBadgeText.Text = running ? "Running" : "Not running";
+        RunningBadge.Opacity = running ? 1 : 0.55;
+
+        var status = AgentStatusFile.TryRead(AgentStatusFile.PathFor(DataDirectory()));
+
+        if (status is null)
+        {
+            // Either the Agent has never completed a sync on this machine, or it predates the
+            // status file. Saying so beats showing a dash that could mean anything.
+            HeartbeatText.Text = running ? "waiting for first sync" : "unknown";
+            QueuedText.Text = "unknown";
+            return;
+        }
+
+        HeartbeatText.Text = status.LastSyncUtc is { } last ? Ago(last) : "no successful sync yet";
+        QueuedText.Text = status.QueuedEvents == 0 ? "none" : status.QueuedEvents.ToString("N0");
+
+        if (status.LastErrorMessage is { Length: > 0 } error)
+        {
+            ConnStatusTitle.Text = error;
+            StatusText.Text = status.QueuedEvents > 0
+                ? $"{status.QueuedEvents:N0} events are waiting on this machine and will be sent once this is fixed."
+                : "Nothing is lost - events are kept on this machine until it reconnects.";
+        }
+        else if (status.LastSyncUtc is { } ok)
+        {
+            ConnStatusTitle.Text = "Connection verified";
+            StatusText.Text = $"Last successful sync {Ago(ok)}.";
+        }
+    }
+
+    private void LoadLocalConfiguration()
+    {
+        var dataDirectory = DataDirectory();
+        DataDirText.Text = dataDirectory;
+
+        // Read straight from the same file the Agent reads, so this cannot drift from what is
+        // actually in force. Absent values fall back to the shipped defaults.
+        var (sync, screenshot, idle) = ReadIntervals();
+        SyncIntervalText.Text = $"every {sync}s";
+        ScreenshotIntervalText.Text = screenshot % 60 == 0 ? $"every {screenshot / 60} min" : $"every {screenshot}s";
+        IdleThresholdText.Text = idle % 60 == 0 ? $"{idle / 60} min without input" : $"{idle}s without input";
+
+        var deviceIdPath = Path.Combine(dataDirectory, "device-id.txt");
+        DeviceIdText.Text = File.Exists(deviceIdPath)
+            ? File.ReadAllText(deviceIdPath).Trim()
+            : "not enrolled yet";
+    }
+
+    private static string AgentVersion() =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+
+    /// <summary>
+    /// The tracking instance holds a session-scoped mutex (see Program.cs). Failing to create it
+    /// is the same signal a second copy of the Agent uses to bow out.
+    /// </summary>
+    private static bool IsAgentRunning()
+    {
+        try
+        {
+            using var mutex = new Mutex(initiallyOwned: true, @"Local\TimeTrackerAgent-SingleInstance", out var createdNew);
+            if (createdNew)
+            {
+                mutex.ReleaseMutex();
+            }
+
+            return !createdNew;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static string DataDirectory() =>
+        Path.GetDirectoryName(InstallTimeConfig.GetPath()) ??
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TimeTracker");
+
+    private static (int Sync, int Screenshot, int Idle) ReadIntervals()
+    {
+        const int defaultSync = 30, defaultScreenshot = 600, defaultIdle = 300;
+
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            if (!File.Exists(path))
+            {
+                return (defaultSync, defaultScreenshot, defaultIdle);
+            }
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (!doc.RootElement.TryGetProperty("Agent", out var agent))
+            {
+                return (defaultSync, defaultScreenshot, defaultIdle);
+            }
+
+            int Read(string name, int fallback) =>
+                agent.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : fallback;
+
+            return (Read("SyncIntervalSeconds", defaultSync),
+                    Read("ScreenshotIntervalSeconds", defaultScreenshot),
+                    Read("IdleThresholdSeconds", defaultIdle));
+        }
+        catch (Exception)
+        {
+            return (defaultSync, defaultScreenshot, defaultIdle);
+        }
+    }
+
+    private static string Ago(DateTimeOffset moment)
+    {
+        var span = DateTimeOffset.UtcNow - moment;
+
+        return span switch
+        {
+            { TotalSeconds: < 90 } => "just now",
+            { TotalMinutes: < 60 } => $"{(int)span.TotalMinutes} minutes ago",
+            { TotalHours: < 24 } => $"{(int)span.TotalHours} hours ago",
+            _ => moment.ToLocalTime().ToString("d MMM yyyy, HH:mm"),
+        };
+    }
+
+    private void OnNavChanged(object sender, RoutedEventArgs e)
+    {
+        // Set by the constructor before the panels exist in the visual tree.
+        if (ConnectionPanel is null)
+        {
+            return;
+        }
+
+        var connection = NavConnection.IsChecked == true;
+        var general = NavGeneral.IsChecked == true;
+
+        ConnectionPanel.Visibility = connection ? Visibility.Visible : Visibility.Collapsed;
+        GeneralPanel.Visibility = general ? Visibility.Visible : Visibility.Collapsed;
+        AboutPanel.Visibility = NavAbout.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+        (SectionTitle.Text, SectionSubtitle.Text) = connection
+            ? ("Connection settings", "Keep this device securely connected to your TimeTracker workspace.")
+            : general
+                ? ("General", "How this Agent is configured on this machine.")
+                : ("About", "What this Agent is, and where it lives on this machine.");
+    }
+
+    /// <summary>The icon beside the field does the same job as the checkbox below it.</summary>
+    private void OnToggleKeyVisibility(object sender, RoutedEventArgs e)
+    {
+        ShowKeyCheckBox.IsChecked = ShowKeyCheckBox.IsChecked != true;
+    }
+
+    private void OnCopyKey(object sender, RoutedEventArgs e)
+    {
+        var key = ApiKeyValue.Trim();
+
+        if (key.Length == 0)
+        {
+            ShowStatus("There is no key to copy yet.", isError: true);
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(key);
+            ShowStatus("API key copied to the clipboard.", isError: false);
+        }
+        catch (Exception)
+        {
+            // The clipboard can be locked by another process; not worth more than a line.
+            ShowStatus("Could not reach the clipboard - copy the key manually.", isError: true);
+        }
     }
 
     private string ApiKeyValue => ShowKeyCheckBox.IsChecked == true ? ApiKeyTextBox.Text : ApiKeyPasswordBox.Password;
@@ -166,12 +358,22 @@ public partial class SettingsWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Both outcomes are written in the palette rather than the usual red and green: the brief
+    /// rules those out, and an error is legible here through its words and a deepened rust
+    /// rather than through hue alone - which is the more accessible signal anyway.
+    /// </summary>
     private void ShowStatus(string text, bool isError)
     {
+        ConnStatusTitle.Text = isError ? "Something needs attention" : "Done";
         StatusText.Text = text;
-        StatusText.Foreground = new SolidColorBrush(isError
-            ? System.Windows.Media.Color.FromRgb(0xC0, 0x39, 0x2B)
-            : System.Windows.Media.Color.FromRgb(0x1F, 0x7A, 0x5C));
         StatusText.Visibility = Visibility.Visible;
+
+        ConnStatusTitle.Foreground = new SolidColorBrush(isError
+            ? System.Windows.Media.Color.FromRgb(0xA3, 0x2F, 0x22)
+            : System.Windows.Media.Color.FromRgb(0x8C, 0x38, 0x1F));
+        ConnStatusDot.Fill = new SolidColorBrush(isError
+            ? System.Windows.Media.Color.FromRgb(0xA3, 0x2F, 0x22)
+            : System.Windows.Media.Color.FromRgb(0xFB, 0x98, 0x24));
     }
 }

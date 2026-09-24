@@ -36,6 +36,7 @@ public class AgentHealth
     private readonly ILogger<AgentHealth> _logger;
     private readonly Func<DateTimeOffset> _now;
     private readonly Func<bool> _isNetworkAvailable;
+    private readonly string? _statusFilePath;
 
     private DateTimeOffset? _connectionFailingSince;
     private bool _reportedThisOutage;
@@ -56,12 +57,36 @@ public class AgentHealth
         IEventStore store,
         ILogger<AgentHealth> logger,
         Func<DateTimeOffset>? now = null,
-        Func<bool>? isNetworkAvailable = null)
+        Func<bool>? isNetworkAvailable = null,
+        string? statusFilePath = null)
     {
         _store = store;
         _logger = logger;
         _now = now ?? (() => DateTimeOffset.UtcNow);
         _isNetworkAvailable = isNetworkAvailable ?? NetworkInterface.GetIsNetworkAvailable;
+        _statusFilePath = statusFilePath;
+    }
+
+    /// <summary>
+    /// Mirrors the current state to disk for the Settings window, which may be running in a
+    /// different process entirely. Failures here are swallowed: this is a convenience for a
+    /// window that may never be opened, and it must never disturb tracking.
+    /// </summary>
+    private void PersistSnapshot()
+    {
+        if (_statusFilePath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            AgentStatusFile.Write(_statusFilePath, new AgentStatusSnapshot(
+                LastSuccessfulSyncUtc, LastErrorMessage, QueuedEventCount, _now()));
+        }
+        catch (Exception)
+        {
+        }
     }
 
     public DateTimeOffset? LastSuccessfulSyncUtc { get; private set; }
@@ -98,6 +123,8 @@ public class AgentHealth
             _connectionFailingSince = null;
             _reportedThisOutage = false;
         }
+
+        PersistSnapshot();
 
         if (announceRecovery)
         {
@@ -151,6 +178,7 @@ public class AgentHealth
         // The tray updates either way: whoever is sitting at the machine should see the state
         // immediately, even when the console is deliberately not being told.
         Changed?.Invoke();
+        PersistSnapshot();
 
         if (!shouldReport)
         {
