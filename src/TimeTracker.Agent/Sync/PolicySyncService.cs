@@ -57,14 +57,11 @@ public class PolicySyncService : BackgroundService
             {
                 _logger.LogWarning(ex, "Failed to refresh capture policy; keeping previous policy");
 
-                // Worth reporting on its own: capture policy going stale means the console's
-                // per-device switches silently stop taking effect on this machine.
-                await _health.ReportAsync(
-                    AgentLogLevel.Warning,
-                    "PolicySync",
-                    "Could not refresh capture policy",
-                    ex.Message,
-                    stoppingToken);
+                // Capture policy going stale matters - the console's per-device switches stop
+                // taking effect on this machine - but it fails for the same reason sync does, and
+                // a sleeping laptop should not report it twice. Same gate.
+                await _health.ReportConnectionFailureAsync(
+                    "PolicySync", $"Could not refresh capture policy: {ex.Message}", stoppingToken);
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));

@@ -67,14 +67,17 @@ public class SyncClient : BackgroundService
             {
                 _logger.LogWarning(ex, "Sync attempt failed");
 
-                var unreachable = ex is HttpRequestException or TaskCanceledException;
-                await _health.ReportAsync(
-                    unreachable ? AgentLogLevel.Warning : AgentLogLevel.Error,
-                    "SyncClient",
-                    unreachable ? "Cannot reach the server" : "Sync attempt failed",
-                    ex.Message,
-                    stoppingToken,
-                    serverUnreachable: unreachable);
+                if (ex is HttpRequestException or TaskCanceledException)
+                {
+                    // Connectivity, which on a laptop is usually a closed lid - see
+                    // AgentHealth.ReportConnectionFailureAsync for why that is gated.
+                    await _health.ReportConnectionFailureAsync("SyncClient", ex.Message, stoppingToken);
+                }
+                else
+                {
+                    await _health.ReportAsync(
+                        AgentLogLevel.Error, "SyncClient", "Sync attempt failed", ex.Message, stoppingToken);
+                }
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));

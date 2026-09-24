@@ -1,3 +1,4 @@
+using System.Net.NetworkInformation;
 using Microsoft.Extensions.Logging;
 using TimeTracker.Agent.Storage;
 using TimeTracker.Shared.Diagnostics;
@@ -22,10 +23,22 @@ public class AgentHealth
     /// </summary>
     private static readonly TimeSpan RepeatAfter = TimeSpan.FromMinutes(15);
 
+    /// <summary>
+    /// How long a connection has to stay broken before the console hears about it. Measured
+    /// against this machine's own logs: nearly every failure here is a single 30-second tick -
+    /// a Wi-Fi roam or a DHCP renewal - and reporting those would bury the real faults.
+    /// </summary>
+    public static readonly TimeSpan ReportConnectionFailureAfter = TimeSpan.FromMinutes(2);
+
     private readonly object _gate = new();
     private readonly Dictionary<string, Pending> _pending = new();
     private readonly IEventStore _store;
     private readonly ILogger<AgentHealth> _logger;
+    private readonly Func<DateTimeOffset> _now;
+    private readonly Func<bool> _isNetworkAvailable;
+
+    private DateTimeOffset? _connectionFailingSince;
+    private bool _reportedThisOutage;
 
     private sealed class Pending
     {
@@ -34,10 +47,21 @@ public class AgentHealth
         public int SuppressedCount;
     }
 
-    public AgentHealth(IEventStore store, ILogger<AgentHealth> logger)
+    /// <param name="now">Injectable so the timing rules can be tested without waiting them out.</param>
+    /// <param name="isNetworkAvailable">
+    /// Injectable for the same reason. Defaults to asking Windows, which reports no network while
+    /// a laptop sits in Modern Standby - the state behind almost every outage on this fleet.
+    /// </param>
+    public AgentHealth(
+        IEventStore store,
+        ILogger<AgentHealth> logger,
+        Func<DateTimeOffset>? now = null,
+        Func<bool>? isNetworkAvailable = null)
     {
         _store = store;
         _logger = logger;
+        _now = now ?? (() => DateTimeOffset.UtcNow);
+        _isNetworkAvailable = isNetworkAvailable ?? NetworkInterface.GetIsNetworkAvailable;
     }
 
     public DateTimeOffset? LastSuccessfulSyncUtc { get; private set; }
@@ -58,24 +82,96 @@ public class AgentHealth
 
     public void RecordSyncSuccess(int queued)
     {
-        var wasUnreachable = !IsServerReachable;
+        bool announceRecovery;
 
         lock (_gate)
         {
             IsServerReachable = true;
-            LastSuccessfulSyncUtc = DateTimeOffset.UtcNow;
+            LastSuccessfulSyncUtc = _now();
             QueuedEventCount = queued;
             LastErrorMessage = null;
+
+            // Only worth announcing if the outage was reported in the first place. A blip that
+            // never reached the console would otherwise produce a "Reconnected" line with nothing
+            // before it, which reads like a fault whose cause is missing.
+            announceRecovery = _reportedThisOutage;
+            _connectionFailingSince = null;
+            _reportedThisOutage = false;
         }
 
-        if (wasUnreachable)
+        if (announceRecovery)
         {
-            // Worth a line of its own: it closes the gap the console would otherwise show as an
-            // unexplained silence, and tells the reader when delivery resumed.
+            // Closes the gap the console would otherwise show as an unexplained silence, and says
+            // when delivery resumed.
             _ = ReportAsync(AgentLogLevel.Info, "SyncClient", "Reconnected to the server", null, CancellationToken.None);
         }
 
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A failed attempt to reach the server, which is not the same kind of event as a fault in the
+    /// Agent and must not be reported like one.
+    ///
+    /// These machines are laptops. Windows disconnects the network during Modern Standby by power
+    /// policy, so a closed lid produces a failure every sync interval for as long as it stays
+    /// closed - one overnight standby on this machine logged 196 of them. Reporting each, or even
+    /// each coalesced group, would fill the console with sleeping laptops and bury the faults an
+    /// admin can act on.
+    ///
+    /// So two gates. No network at all is never reported: that is a lid, not a fault, and the
+    /// person at the machine can already see it in the tray. A network that exists but cannot
+    /// reach the server is reported only once it has stayed that way, which drops the
+    /// single-tick blips that make up nearly every failure in this fleet's history.
+    /// </summary>
+    public async Task ReportConnectionFailureAsync(
+        string source, string detail, CancellationToken cancellationToken)
+    {
+        var now = _now();
+        var hasNetwork = SafeIsNetworkAvailable();
+        var message = hasNetwork ? "Cannot reach the server" : "No network connection";
+        bool shouldReport;
+
+        lock (_gate)
+        {
+            _connectionFailingSince ??= now;
+            IsServerReachable = false;
+            LastErrorMessage = message;
+            LastErrorUtc = now;
+
+            shouldReport = hasNetwork
+                && now - _connectionFailingSince >= ReportConnectionFailureAfter;
+
+            if (shouldReport)
+            {
+                _reportedThisOutage = true;
+            }
+        }
+
+        // The tray updates either way: whoever is sitting at the machine should see the state
+        // immediately, even when the console is deliberately not being told.
+        Changed?.Invoke();
+
+        if (!shouldReport)
+        {
+            return;
+        }
+
+        await ReportAsync(
+            AgentLogLevel.Warning, source, message, detail, cancellationToken, serverUnreachable: true);
+    }
+
+    private bool SafeIsNetworkAvailable()
+    {
+        try
+        {
+            return _isNetworkAvailable();
+        }
+        catch (Exception)
+        {
+            // Unable to tell; assume there is a network so a real fault is still reported.
+            return true;
+        }
     }
 
     public void RecordQueueDepth(int queued)
@@ -100,7 +196,7 @@ public class AgentHealth
         CancellationToken cancellationToken,
         bool serverUnreachable = false)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _now();
         var key = $"{source}|{message}";
         bool shouldSend;
         int suppressed = 0;
