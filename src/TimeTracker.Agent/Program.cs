@@ -150,6 +150,13 @@ using var shutdownSignal = AgentShutdownSignal.CreateListener();
 var shutdownThread = new Thread(() =>
 {
     shutdownSignal.WaitOne();
+
+    // Reset before exiting. The event is manual-reset and lives as long as any process holds a
+    // handle, so a replacement Agent starting while it is still signalled - which is exactly what
+    // the watchdog does moments after "Save and restart" - would see it immediately and exit
+    // again, leaving no Agent running at all. Observed while testing a restart.
+    shutdownSignal.Reset();
+
     trayIconRef?.RequestExit();
 })
 {
